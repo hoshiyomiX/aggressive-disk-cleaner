@@ -11,107 +11,107 @@ inputs:
   keep_node:
     description: 'Keep Node.js toolchains (~570MB)'
     required: false
-    default: 'true'
+    default: true
   keep_python:
     description: 'Keep Python toolchains (~1.7GB)'
     required: false
-    default: 'true'
+    default: true
   keep_go:
     description: 'Keep Go toolchains (~1.1GB)'
     required: false
-    default: 'true'
+    default: true
   keep_java:
     description: 'Keep Java JDKs (~1.5GB)'
     required: false
-    default: 'true'
+    default: true
   keep_dotnet:
     description: 'Keep .NET SDK (~4.2GB)'
     required: false
-    default: 'true'
+    default: true
   keep_ruby:
     description: 'Keep Ruby toolchains (~313MB)'
     required: false
-    default: 'false'
+    default: false
     
-  # Large optional cleanups (enable options)
+  # Large optional cleanups
   clean_android:
     description: 'Clean Android SDK/NDK (~10GB)'
     required: false
-    default: 'true'
+    default: true
   clean_docker:
     description: 'Clean Docker images/volumes (~2GB)'
     required: false
-    default: 'true'
+    default: true
   clean_codeql:
     description: 'Clean CodeQL (~1.7GB)'
     required: false
-    default: 'true'
+    default: true
   clean_ghc_haskell:
     description: 'Clean Haskell/GHC (~3.7GB)'
     required: false
-    default: 'true'
+    default: true
   clean_swift:
     description: 'Clean Swift toolchain (~3.2GB)'
     required: false
-    default: 'true'
+    default: true
   clean_powershell:
     description: 'Clean PowerShell modules (~1.3GB)'
     required: false
-    default: 'true'
+    default: true
   clean_julia:
     description: 'Clean Julia (~1GB)'
     required: false
-    default: 'true'
+    default: true
   clean_google_cloud:
     description: 'Clean Google Cloud SDK (~1GB)'
     required: false
-    default: 'true'
+    default: true
   clean_azure_cli:
     description: 'Clean Azure CLI (~1.2GB)'
     required: false
-    default: 'true'
+    default: true
   clean_miniconda:
     description: 'Clean Miniconda (~860MB)'
     required: false
-    default: 'true'
+    default: true
   clean_llvm_extra:
     description: 'Clean extra LLVM versions (~1.9GB)'
     required: false
-    default: 'true'
+    default: true
   clean_browsers:
     description: 'Clean Firefox/Chromium/Edge (~1.7GB)'
     required: false
-    default: 'true'
+    default: true
     
   # Additional cleanups
   clean_rust:
     description: 'Clean Rust toolchains (~600MB)'
     required: false
-    default: 'true'
+    default: true
   clean_packer:
     description: 'Clean /home/packer (~680MB)'
     required: false
-    default: 'true'
+    default: true
   clean_skel:
     description: 'Clean /etc/skel duplicates (~680MB)'
     required: false
-    default: 'true'
+    default: true
   clean_linuxbrew:
     description: 'Clean Homebrew (~188MB)'
     required: false
-    default: 'true'
+    default: true
   clean_build_caches:
     description: 'Clean Gradle/Maven/vcpkg (~400MB)'
     required: false
-    default: 'true'
+    default: true
   clean_misc:
     description: 'Clean docs/AWS CLI/pipx (~1.2GB)'
     required: false
-    default: 'true'
+    default: true
   clean_swap:
     description: 'Disable swap file (~3GB)'
     required: false
-    default: 'false'
+    default: false
 
 runs:
   using: 'composite'
