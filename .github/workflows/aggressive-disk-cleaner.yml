@@ -92,7 +92,7 @@ on:
         default: 'true'
         type: boolean
       clean_browsers:
-        description: 'Clean Firefox/Chromium (~920MB)'
+        description: 'Clean Firefox/Chromium/Edge (~1.7GB total)'
         required: false
         default: 'true'
         type: boolean
@@ -118,33 +118,13 @@ on:
         required: false
         default: 'true'
         type: boolean
-      clean_vcpkg:
-        description: 'Clean vcpkg (~189MB)'
+      clean_build_caches:
+        description: 'Clean Gradle/Maven/vcpkg caches (~400MB)'
         required: false
         default: 'true'
         type: boolean
-      clean_gradle_maven:
-        description: 'Clean Gradle/Maven caches'
-        required: false
-        default: 'true'
-        type: boolean
-      clean_docs:
-        description: 'Clean man pages/docs/locales (~234MB)'
-        required: false
-        default: 'true'
-        type: boolean
-      clean_cloud_tools:
-        description: 'Clean AWS CLI/SAM CLI (~500MB)'
-        required: false
-        default: 'true'
-        type: boolean
-      clean_pipx:
-        description: 'Clean pipx installed tools (~533MB)'
-        required: false
-        default: 'true'
-        type: boolean
-      clean_ms_edge:
-        description: 'Clean Microsoft Edge (~794MB)'
+      clean_misc:
+        description: 'Clean docs/AWS CLI/pipx (~1.2GB)'
         required: false
         default: 'true'
         type: boolean
@@ -354,11 +334,13 @@ jobs:
             sudo rm -rf /usr/lib/llvm-17 2>/dev/null || true
           fi
           
-          # Browsers (~920MB)
+          # Browsers - Firefox/Chromium/Edge (~1.7GB total)
           if [ "${{ inputs.clean_browsers }}" = "true" ]; then
-            echo "[Browsers] Removing Firefox/Chromium... (~920MB)"
+            echo "[Browsers] Removing Firefox/Chromium/Edge... (~1.7GB)"
             sudo rm -rf /usr/lib/firefox 2>/dev/null || true
             sudo rm -rf /usr/local/share/chromium 2>/dev/null || true
+            sudo rm -rf /opt/microsoft/msedge 2>/dev/null || true
+            sudo rm -rf /opt/microsoft/edge 2>/dev/null || true
           fi
 
       - name: Phase 4 - Optional Toolchain Cleanups
@@ -449,15 +431,9 @@ jobs:
             sudo rm -rf /home/linuxbrew/.linuxbrew 2>/dev/null || true
           fi
           
-          # vcpkg (~189MB)
-          if [ "${{ inputs.clean_vcpkg }}" = "true" ]; then
-            echo "[vcpkg] Removing... (~189MB)"
-            sudo rm -rf /usr/local/share/vcpkg 2>/dev/null || true
-          fi
-          
-          # Gradle/Maven caches
-          if [ "${{ inputs.clean_gradle_maven }}" = "true" ]; then
-            echo "[Gradle/Maven] Cleaning caches..."
+          # Build caches - Gradle/Maven/vcpkg (~400MB)
+          if [ "${{ inputs.clean_build_caches }}" = "true" ]; then
+            echo "[Build Caches] Removing Gradle/Maven/vcpkg... (~400MB)"
             sudo rm -rf /home/runner/.gradle 2>/dev/null || true
             sudo rm -rf /home/runner/.m2 2>/dev/null || true
             sudo rm -rf /home/packer/.gradle 2>/dev/null || true
@@ -466,36 +442,23 @@ jobs:
             sudo rm -rf /root/.m2 2>/dev/null || true
             sudo rm -rf /usr/share/gradle-* 2>/dev/null || true
             sudo rm -rf /usr/share/apache-maven-* 2>/dev/null || true
+            sudo rm -rf /usr/local/share/vcpkg 2>/dev/null || true
           fi
           
-          # Documentation (~234MB)
-          if [ "${{ inputs.clean_docs }}" = "true" ]; then
-            echo "[Docs] Removing man pages, docs, locales... (~234MB)"
+          # Misc - docs/AWS CLI/pipx (~1.2GB)
+          if [ "${{ inputs.clean_misc }}" = "true" ]; then
+            echo "[Misc] Removing docs/AWS CLI/pipx... (~1.2GB)"
+            # Docs
             sudo rm -rf /usr/share/man/* 2>/dev/null || true
             sudo rm -rf /usr/share/doc/* 2>/dev/null || true
             sudo rm -rf /usr/share/locale/* 2>/dev/null || true
-          fi
-          
-          # AWS CLI/SAM CLI (~500MB)
-          if [ "${{ inputs.clean_cloud_tools }}" = "true" ]; then
-            echo "[Cloud Tools] Removing AWS CLI, SAM CLI... (~500MB)"
+            # AWS CLI/SAM CLI
             sudo rm -rf /usr/local/aws-cli 2>/dev/null || true
             sudo rm -rf /usr/local/aws-sam-cli 2>/dev/null || true
             sudo rm -rf /root/.aws 2>/dev/null || true
             sudo rm -rf /home/runner/.aws 2>/dev/null || true
-          fi
-          
-          # pipx tools (~533MB)
-          if [ "${{ inputs.clean_pipx }}" = "true" ]; then
-            echo "[pipx] Removing installed tools... (~533MB)"
+            # pipx tools
             sudo rm -rf /opt/pipx 2>/dev/null || true
-          fi
-          
-          # Microsoft Edge (~794MB)
-          if [ "${{ inputs.clean_ms_edge }}" = "true" ]; then
-            echo "[MS Edge] Removing... (~794MB)"
-            sudo rm -rf /opt/microsoft/msedge 2>/dev/null || true
-            sudo rm -rf /opt/microsoft/edge 2>/dev/null || true
           fi
 
       - name: Phase 6 - Swap Cleanup

@@ -79,7 +79,7 @@ inputs:
     required: false
     default: 'true'
   clean_browsers:
-    description: 'Clean Firefox/Chromium (~920MB)'
+    description: 'Clean Firefox/Chromium/Edge (~1.7GB)'
     required: false
     default: 'true'
     
@@ -100,16 +100,12 @@ inputs:
     description: 'Clean Homebrew (~188MB)'
     required: false
     default: 'true'
-  clean_vcpkg:
-    description: 'Clean vcpkg (~189MB)'
+  clean_build_caches:
+    description: 'Clean Gradle/Maven/vcpkg (~400MB)'
     required: false
     default: 'true'
-  clean_gradle_maven:
-    description: 'Clean Gradle/Maven caches'
-    required: false
-    default: 'true'
-  clean_docs:
-    description: 'Clean man pages/docs/locales (~234MB)'
+  clean_misc:
+    description: 'Clean docs/AWS CLI/pipx (~1.2GB)'
     required: false
     default: 'true'
   clean_swap:
@@ -149,7 +145,6 @@ runs:
         (sudo rm -rf /tmp/* /var/tmp/*) &
         (sudo rm -rf /home/runner/.cache/* /home/packer/.cache/* /root/.cache/*) &
         (sudo rm -rf /opt/hostedtoolcache/PyPy) &
-        (sudo rm -rf /opt/hostedtoolcache/Ruby) &
         
         wait
         echo "Phase 1 complete!"
@@ -245,11 +240,13 @@ runs:
           sudo rm -rf /usr/lib/llvm-16 /usr/lib/llvm-17
         fi
         
-        # Browsers
+        # Browsers (Firefox/Chromium/Edge)
         if [ "${{ inputs.clean_browsers }}" = "true" ]; then
-          echo "[Browsers] Removing... (~920MB)"
+          echo "[Browsers] Removing... (~1.7GB)"
           sudo rm -rf /usr/lib/firefox
           sudo rm -rf /usr/local/share/chromium
+          sudo rm -rf /opt/microsoft/msedge
+          sudo rm -rf /opt/microsoft/edge
         fi
 
     - name: Phase 4 - Optional Toolchain Cleanups
@@ -326,25 +323,26 @@ runs:
           sudo rm -rf /home/linuxbrew/.linuxbrew
         fi
         
-        # vcpkg
-        if [ "${{ inputs.clean_vcpkg }}" = "true" ]; then
-          echo "[vcpkg] Removing... (~189MB)"
-          sudo rm -rf /usr/local/share/vcpkg
-        fi
-        
-        # Gradle/Maven
-        if [ "${{ inputs.clean_gradle_maven }}" = "true" ]; then
-          echo "[Gradle/Maven] Cleaning caches..."
+        # Build caches (Gradle/Maven/vcpkg)
+        if [ "${{ inputs.clean_build_caches }}" = "true" ]; then
+          echo "[Build Caches] Cleaning... (~400MB)"
           sudo rm -rf /home/runner/.gradle /home/runner/.m2
           sudo rm -rf /home/packer/.gradle /home/packer/.m2
           sudo rm -rf /root/.gradle /root/.m2
           sudo rm -rf /usr/share/gradle-* /usr/share/apache-maven-*
+          sudo rm -rf /usr/local/share/vcpkg
         fi
         
-        # Docs
-        if [ "${{ inputs.clean_docs }}" = "true" ]; then
-          echo "[Docs] Removing... (~234MB)"
+        # Misc (docs/AWS CLI/pipx)
+        if [ "${{ inputs.clean_misc }}" = "true" ]; then
+          echo "[Misc] Cleaning docs/AWS CLI/pipx... (~1.2GB)"
+          # Docs
           sudo rm -rf /usr/share/man/* /usr/share/doc/* /usr/share/locale/*
+          # AWS CLI
+          sudo rm -rf /usr/local/aws-cli /usr/local/aws-sam-cli
+          sudo rm -rf /root/.aws /home/runner/.aws
+          # pipx
+          sudo rm -rf /opt/pipx
         fi
 
     - name: Phase 6 - Swap Cleanup
