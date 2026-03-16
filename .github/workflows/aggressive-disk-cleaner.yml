@@ -28,6 +28,26 @@ on:
         required: false
         default: 'true'
         type: boolean
+      clean_packer_home:
+        description: 'Clean /home/packer (packer user directory)'
+        required: false
+        default: 'true'
+        type: boolean
+      clean_skel:
+        description: 'Clean /etc/skel (skeleton directory with duplicate toolchains)'
+        required: false
+        default: 'true'
+        type: boolean
+      clean_linuxbrew:
+        description: 'Clean /home/linuxbrew (Homebrew installation)'
+        required: false
+        default: 'true'
+        type: boolean
+      clean_swap:
+        description: 'Disable and remove swap file (frees ~3GB)'
+        required: false
+        default: 'false'
+        type: boolean
 
 jobs:
   clean-disk:
@@ -77,21 +97,22 @@ jobs:
           echo "/usr/local:    $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
           echo "/home:         $(sudo du -sh /home 2>/dev/null | cut -f1)"
           echo "/var:          $(sudo du -sh /var 2>/dev/null | cut -f1)"
+          echo "/etc/skel:     $(sudo du -sh /etc/skel 2>/dev/null | cut -f1)"
           
-      - name: Aggressive Disk Cleanup
+      - name: Aggressive Disk Cleanup - Phase 1
         run: |
           echo "=========================================="
-          echo "STARTING AGGRESSIVE CLEANUP"
+          echo "PHASE 1: AGGRESSIVE CLEANUP"
           echo "=========================================="
           
           # Fast parallel cleanup using subshells
           (
-            echo "[1/10] Removing CodeQL..."
+            echo "[1/12] Removing CodeQL..."
             sudo rm -rf /opt/hostedtoolcache/CodeQL 2>/dev/null || true
           ) &
           
           (
-            echo "[2/10] Removing Rust toolchains (all users)..."
+            echo "[2/12] Removing Rust toolchains (all users)..."
             sudo rm -rf /home/runner/.rustup 2>/dev/null || true
             sudo rm -rf /home/runner/.cargo 2>/dev/null || true
             sudo rm -rf /home/packer/.rustup 2>/dev/null || true
@@ -103,18 +124,19 @@ jobs:
           ) &
           
           (
-            echo "[3/10] Removing PyPy..."
+            echo "[3/12] Removing PyPy..."
             sudo rm -rf /opt/hostedtoolcache/PyPy 2>/dev/null || true
           ) &
           
           (
-            echo "[4/10] Removing Ruby toolchains..."
+            echo "[4/12] Removing Ruby toolchains..."
             sudo rm -rf /opt/hostedtoolcache/Ruby 2>/dev/null || true
             sudo rm -rf /home/runner/.gem 2>/dev/null || true
+            sudo rm -rf /home/packer/.gem 2>/dev/null || true
           ) &
           
           (
-            echo "[5/10] Removing Java caches..."
+            echo "[5/12] Removing Java caches..."
             sudo rm -rf /home/runner/.gradle 2>/dev/null || true
             sudo rm -rf /home/runner/.m2 2>/dev/null || true
             sudo rm -rf /home/packer/.gradle 2>/dev/null || true
@@ -122,32 +144,51 @@ jobs:
           ) &
           
           (
-            echo "[6/10] Removing .NET caches..."
+            echo "[6/12] Removing .NET caches..."
             sudo rm -rf /home/runner/.nuget 2>/dev/null || true
             sudo rm -rf /home/packer/.nuget 2>/dev/null || true
+            sudo rm -rf /etc/skel/.dotnet 2>/dev/null || true
           ) &
           
           (
-            echo "[7/10] Cleaning APT cache..."
+            echo "[7/12] Cleaning APT cache..."
             sudo apt-get clean 2>/dev/null || true
             sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true
             sudo rm -rf /var/cache/apt/* 2>/dev/null || true
           ) &
           
           (
-            echo "[8/10] Removing documentation and man pages..."
+            echo "[8/12] Removing documentation and man pages..."
             sudo rm -rf /usr/share/man/* 2>/dev/null || true
             sudo rm -rf /usr/share/doc/* 2>/dev/null || true
             sudo rm -rf /usr/share/locale/* 2>/dev/null || true
           ) &
           
           (
-            echo "[9/10] Removing Linuxbrew git objects..."
+            echo "[9/12] Removing Linuxbrew git objects..."
             sudo rm -rf /home/linuxbrew/.linuxbrew/Homebrew/.git 2>/dev/null || true
           ) &
           
+          (
+            echo "[10/12] Removing PowerShell modules..."
+            sudo rm -rf /usr/local/share/powershell/Modules 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[11/12] Cleaning runner caches..."
+            sudo rm -rf /home/runner/.cache/* 2>/dev/null || true
+            sudo rm -rf /home/packer/.cache/* 2>/dev/null || true
+            sudo rm -rf /root/.cache/* 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[12/12] Removing temp files..."
+            sudo rm -rf /tmp/* 2>/dev/null || true
+            sudo rm -rf /var/tmp/* 2>/dev/null || true
+          ) &
+          
           wait
-          echo "First pass complete!"
+          echo "Phase 1 complete!"
           
       - name: Conditional Cleanups
         run: |
@@ -159,13 +200,17 @@ jobs:
             sudo rm -rf /usr/local/lib/android/sdk/cmdline-tools 2>/dev/null || true
             sudo rm -rf /usr/local/lib/android/sdk/platforms 2>/dev/null || true
             sudo rm -rf /usr/local/lib/android/sdk/patcher 2>/dev/null || true
+            sudo rm -rf /usr/local/lib/android/sdk/sources 2>/dev/null || true
+            sudo rm -rf /usr/local/lib/android/sdk/extras 2>/dev/null || true
           fi
           
           # Docker cleanup
           if [ "${{ inputs.skip_docker }}" != "true" ]; then
             echo "[Docker] Removing Docker images and containers..."
             sudo docker system prune -af --volumes 2>/dev/null || true
+            sudo docker builder prune -af 2>/dev/null || true
             sudo rm -rf /var/lib/docker/* 2>/dev/null || true
+            sudo rm -rf /var/lib/containerd/* 2>/dev/null || true
           fi
           
       - name: Optional Toolchain Cleanup
@@ -175,6 +220,7 @@ jobs:
             echo "[Node.js] Removing Node.js toolchains..."
             sudo rm -rf /opt/hostedtoolcache/node 2>/dev/null || true
             sudo rm -rf /home/runner/.npm 2>/dev/null || true
+            sudo rm -rf /home/runner/.nvm 2>/dev/null || true
           fi
           
           # Python toolchains
@@ -189,6 +235,63 @@ jobs:
             echo "[Go] Removing Go toolchains..."
             sudo rm -rf /opt/hostedtoolcache/go 2>/dev/null || true
             sudo rm -rf /home/runner/go 2>/dev/null || true
+          fi
+          
+      - name: Additional User Directory Cleanup
+        run: |
+          echo "=========================================="
+          echo "ADDITIONAL USER DIRECTORY CLEANUP"
+          echo "=========================================="
+          
+          # Clean /home/packer
+          if [ "${{ inputs.clean_packer_home }}" = "true" ]; then
+            echo "[Packer] Cleaning /home/packer..."
+            sudo rm -rf /home/packer/.rustup 2>/dev/null || true
+            sudo rm -rf /home/packer/.cargo 2>/dev/null || true
+            sudo rm -rf /home/packer/.dotnet 2>/dev/null || true
+            sudo rm -rf /home/packer/.gradle 2>/dev/null || true
+            sudo rm -rf /home/packer/.m2 2>/dev/null || true
+            sudo rm -rf /home/packer/.npm 2>/dev/null || true
+            sudo rm -rf /home/packer/.nuget 2>/dev/null || true
+            sudo rm -rf /home/packer/.cache 2>/dev/null || true
+            sudo rm -rf /home/packer/.gem 2>/dev/null || true
+          fi
+          
+          # Clean /etc/skel (skeleton directory)
+          if [ "${{ inputs.clean_skel }}" = "true" ]; then
+            echo "[Skel] Cleaning /etc/skel (skeleton directory)..."
+            sudo rm -rf /etc/skel/.rustup 2>/dev/null || true
+            sudo rm -rf /etc/skel/.cargo 2>/dev/null || true
+            sudo rm -rf /etc/skel/.dotnet 2>/dev/null || true
+            sudo rm -rf /etc/skel/.nvm 2>/dev/null || true
+            sudo rm -rf /etc/skel/.ghcup 2>/dev/null || true
+          fi
+          
+          # Clean /home/linuxbrew
+          if [ "${{ inputs.clean_linuxbrew }}" = "true" ]; then
+            echo "[Linuxbrew] Cleaning /home/linuxbrew..."
+            sudo rm -rf /home/linuxbrew/.linuxbrew 2>/dev/null || true
+          fi
+          
+      - name: Swap File Cleanup
+        if: ${{ inputs.clean_swap == 'true' }}
+        run: |
+          echo "=========================================="
+          echo "SWAP FILE CLEANUP"
+          echo "=========================================="
+          
+          # Check if swap exists
+          if swapon --show | grep -q .; then
+            echo "Disabling swap..."
+            sudo swapoff -a 2>/dev/null || true
+            
+            echo "Removing swap files..."
+            sudo rm -f /swapfile 2>/dev/null || true
+            sudo rm -f /swap.img 2>/dev/null || true
+            
+            echo "Swap disabled and removed!"
+          else
+            echo "No swap configured"
           fi
           
       - name: Deep Cleanup - Large Tools
@@ -321,6 +424,7 @@ jobs:
           echo "/usr/local:    $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
           echo "/home:         $(sudo du -sh /home 2>/dev/null | cut -f1)"
           echo "/var:          $(sudo du -sh /var 2>/dev/null | cut -f1)"
+          echo "/etc/skel:     $(sudo du -sh /etc/skel 2>/dev/null | cut -f1)"
           
           # Set outputs for summary
           echo "freed_gb=${FREED_GB}" >> $GITHUB_OUTPUT
@@ -358,3 +462,7 @@ jobs:
           echo "| Keep Node.js | ${{ inputs.keep_node }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Keep Python | ${{ inputs.keep_python }} |" >> $GITHUB_STEP_SUMMARY
           echo "| Keep Go | ${{ inputs.keep_go }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Clean Packer Home | ${{ inputs.clean_packer_home }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Clean Skel | ${{ inputs.clean_skel }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Clean Linuxbrew | ${{ inputs.clean_linuxbrew }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Clean Swap | ${{ inputs.clean_swap }} |" >> $GITHUB_STEP_SUMMARY

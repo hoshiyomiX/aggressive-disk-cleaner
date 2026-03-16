@@ -8,9 +8,10 @@
 ## Features
 
 - 🚀 **Fast**: Parallel cleanup operations for maximum speed
-- 🧹 **Aggressive**: Removes up to 30GB+ of unnecessary files
+- 🧹 **Aggressive**: Removes up to 35GB+ of unnecessary files
 - ⚙️ **Configurable**: Fine-grained control over what to keep
 - 🔧 **Reusable**: Use as a workflow or composite action
+- 📊 **Reporting**: Before/after disk usage comparison
 
 ## Quick Start
 
@@ -34,29 +35,16 @@ jobs:
 - name: Free disk space
   uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
-    skip_android: false    # Remove Android SDK
-    skip_docker: false     # Remove Docker images
-    keep_node: true        # Keep Node.js toolchains
-    keep_python: true      # Keep Python toolchains
-    keep_go: true          # Keep Go toolchains
-    deep_clean: true       # Remove Swift, Haskell, Julia, etc.
-```
-
-### As a Workflow Call
-
-```yaml
-jobs:
-  clean-and-build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        
-      - name: Run disk cleaner
-        uses: hoshiyomiX/aggressive-disk-cleaner/.github/workflows/aggressive-disk-cleaner.yml@main
-        with:
-          skip_android: false
-          skip_docker: false
+    skip_android: false      # Remove Android SDK
+    skip_docker: false       # Remove Docker images
+    keep_node: true          # Keep Node.js toolchains
+    keep_python: true        # Keep Python toolchains
+    keep_go: true            # Keep Go toolchains
+    deep_clean: true         # Remove Swift, Haskell, Julia, etc.
+    clean_packer_home: true  # Clean /home/packer
+    clean_skel: true         # Clean /etc/skel duplicates
+    clean_linuxbrew: true    # Remove Homebrew
+    clean_swap: false        # Disable swap (~3GB)
 ```
 
 ## What Gets Cleaned
@@ -70,19 +58,22 @@ jobs:
 | Ruby toolchains | ~313MB | Ruby versions in toolcache |
 | Java caches | Varies | .gradle & .m2 caches |
 | .NET caches | Varies | .nuget cache |
-| APT cache | ~229MB | Package manager cache |
+| APT cache | ~230MB | Package manager cache |
 | Man pages & docs | ~234MB | Documentation files |
-| Linuxbrew git | ~500MB+ | Homebrew git objects |
 | PowerShell modules | ~100MB+ | Microsoft Graph modules |
 
 ### Optional Removal (configurable)
 | Item | Size | Input |
 |------|------|-------|
 | Android SDK/NDK | ~5GB+ | `skip_android: false` |
-| Docker images | ~840MB+ | `skip_docker: false` |
+| Docker images | ~1.8GB+ | `skip_docker: false` |
 | Node.js toolchains | ~571MB | `keep_node: false` |
 | Python toolchains | ~1.6GB | `keep_python: false` |
 | Go toolchains | ~1GB | `keep_go: false` |
+| /home/packer | ~680MB | `clean_packer_home: true` |
+| /etc/skel | ~680MB | `clean_skel: true` |
+| Linuxbrew | ~188MB | `clean_linuxbrew: true` |
+| Swap file | ~3.1GB | `clean_swap: true` |
 
 ### Deep Clean (when `deep_clean: true`)
 | Item | Size | Description |
@@ -98,8 +89,8 @@ jobs:
 
 | Metric | Before | After |
 |--------|--------|-------|
-| Disk Used | ~54GB | ~25GB |
-| Disk Available | ~92GB | ~120GB |
+| Disk Used | ~54GB | ~20GB |
+| Disk Available | ~92GB | ~125GB |
 | Cleanup Time | - | ~30-60 seconds |
 
 ## Inputs
@@ -112,6 +103,10 @@ jobs:
 | `keep_python` | boolean | `true` | Keep Python toolchains |
 | `keep_go` | boolean | `true` | Keep Go toolchains |
 | `deep_clean` | boolean | `true` | Remove large development tools |
+| `clean_packer_home` | boolean | `true` | Clean /home/packer directory |
+| `clean_skel` | boolean | `true` | Clean /etc/skel (skeleton directory) |
+| `clean_linuxbrew` | boolean | `true` | Remove Homebrew installation |
+| `clean_swap` | boolean | `false` | Disable and remove swap file |
 
 ## Use Cases
 
@@ -155,6 +150,10 @@ jobs:
     keep_python: false
     keep_go: false
     deep_clean: true
+    clean_packer_home: true
+    clean_skel: true
+    clean_linuxbrew: true
+    clean_swap: true
 ```
 
 ## How It Works
@@ -162,16 +161,23 @@ jobs:
 1. **Parallel Execution**: Uses subshells to run cleanup operations in parallel for speed
 2. **Safe Defaults**: Keeps common build toolchains (Node.js, Python, Go) by default
 3. **Selective Removal**: Configurable options for project-specific needs
-4. **Verification**: Reports disk space before and after cleanup
+4. **Before/After Reporting**: Shows disk usage comparison with cleanup summary
 
 ## Disk Scanner Workflow
 
-This repository also includes a disk scanner workflow to analyze disk usage:
+This repository also includes a comprehensive disk scanner workflow to analyze disk usage:
 
 ```yaml
 # Trigger manually
 gh workflow run disk-scan.yml
 ```
+
+The scanner analyzes:
+- All filesystems (root, boot, EFI, tmpfs)
+- Toolchains and build caches
+- User home directories
+- Kernel and boot files
+- Large files and system caches
 
 Results are uploaded as artifacts for analysis.
 
