@@ -1,155 +1,184 @@
-# Aggressive Disk Cleaner
+<div align="center">
 
-⚡ **Fast and aggressive disk space cleanup for GitHub Actions runners**
+# 🧹 Aggressive Disk Cleaner
 
-[![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-blue?logo=github)](https://github.com/features/actions)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+**High-performance disk space cleanup for GitHub Actions runners**
 
-## Features
+*Free up to 30GB+ in under 90 seconds*
 
-- 🚀 **Fast**: Parallel cleanup operations in 6 phases
-- 🧹 **Aggressive**: Removes up to **30GB+** of unnecessary files
-- ⚙️ **Configurable**: Fine-grained control over what to keep/clean
-- 🔧 **Flexible**: Use as workflow or composite action
-- 📊 **Reporting**: Before/after disk usage comparison
+[![GitHub Actions](https://img.shields.io/badge/GitHub-Actions-2088FF?style=for-the-badge&logo=githubactions&logoColor=white)](https://github.com/features/actions)
+[![Ubuntu](https://img.shields.io/badge/Ubuntu-Latest-E95420?style=for-the-badge&logo=ubuntu&logoColor=white)](https://ubuntu.com/)
+[![License](https://img.shields.io/badge/License-MIT-green?style=for-the-badge)](LICENSE)
 
-## Quick Start
+[Features](#-features) • [Quick Start](#-quick-start) • [Configuration](#️-configuration) • [Cleanup Targets](#-cleanup-targets) • [Examples](#-use-case-examples)
 
-### As a Composite Action
+</div>
+
+---
+
+## 📋 Overview
+
+GitHub Actions runners come with ~84GB of available disk space, but pre-installed toolchains consume over 50GB. When building large projects, Docker images, or monorepos, you may encounter "No space left on device" errors.
+
+**Aggressive Disk Cleaner** solves this by intelligently removing unnecessary toolchains and cached files while preserving what your workflow needs.
+
+### Why Use This?
+
+| Problem | Solution |
+|---------|----------|
+| ❌ Build fails with "no space left on device" | ✅ Free 30GB+ before build starts |
+| ❌ Docker image builds run out of space | ✅ Clean Docker cache and unused images |
+| ❌ Large monorepo checkout exceeds limit | ✅ Remove unused toolchains (Android, Swift, GHC) |
+| ❌ CI/CD pipelines inconsistent | ✅ Predictable, configurable cleanup |
+
+---
+
+## ✨ Features
+
+- 🚀 **Blazing Fast** — Parallel cleanup operations complete in 60-90 seconds
+- 🧹 **Aggressive** — Removes up to **30GB+** of unnecessary files
+- ⚙️ **Configurable** — Fine-grained control with 25 input options
+- 📦 **Flexible** — Use as a reusable workflow or composite action
+- 📊 **Transparent** — Before/after disk usage in job summary
+- 🔒 **Safe** — Never removes files needed for your specific build
+
+---
+
+## 🚀 Quick Start
+
+### Option 1: Composite Action (Recommended)
+
+Add this step before your build:
 
 ```yaml
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Free disk space
-        uses: hoshiyomiX/aggressive-disk-cleaner@main
+      - name: 🧹 Free disk space
+        uses: hoshiyomiX/aggressive-disk-cleaner@v1
         
-      - name: Your build step
+      - name: 📦 Your build step
         run: npm run build
 ```
 
-### Maximum Cleanup (Recommended)
+### Option 2: Reusable Workflow
 
 ```yaml
-- name: Free disk space aggressively
-  uses: hoshiyomiX/aggressive-disk-cleaner@main
-  with:
-    # Keep only essential toolchains
-    keep_node: true
-    keep_python: true
-    keep_go: true
-    keep_java: false
-    keep_dotnet: false
-    keep_ruby: false
-    
-    # Clean everything else
-    clean_android: true       # ~10GB
-    clean_docker: true        # ~2GB
-    clean_codeql: true        # ~1.7GB
-    clean_ghc_haskell: true   # ~3.7GB
-    clean_swift: true         # ~3.2GB
-    clean_powershell: true    # ~1.3GB
-    clean_browsers: true      # ~920MB
-    clean_swap: true          # ~3GB
+jobs:
+  cleanup:
+    uses: hoshiyomiX/aggressive-disk-cleaner/.github/workflows/aggressive-disk-cleaner.yml@v1
+    with:
+      keep_node: true
+      keep_python: true
+      
+  build:
+    needs: cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm run build
 ```
 
-## Cleanup Targets
+---
 
-Based on deep scan analysis of GitHub Actions runner:
+## ⚙️ Configuration
 
-### 🔴 Large Items (>1GB)
+### Keep Options (Preserve Toolchains)
 
-| Item | Size | Input | Default |
-|------|------|-------|---------|
-| Android SDK/NDK | ~10GB | `clean_android` | `true` |
-| Haskell/GHC | ~3.7GB | `clean_ghc_haskell` | `true` |
-| Swift toolchain | ~3.2GB | `clean_swift` | `true` |
-| .NET SDK | ~4.2GB | `keep_dotnet` | `true` |
-| CodeQL | ~1.7GB | `clean_codeql` | `true` |
-| LLVM extra | ~1.9GB | `clean_llvm_extra` | `true` |
-| PowerShell | ~1.3GB | `clean_powershell` | `true` |
-| Azure CLI | ~1.2GB | `clean_azure_cli` | `true` |
-| Google Cloud SDK | ~1GB | `clean_google_cloud` | `true` |
-| Julia | ~1GB | `clean_julia` | `true` |
+These options let you **keep** toolchains needed for your build. Set to `true` to preserve, `false` to remove.
 
-### 🟡 Medium Items (100MB-1GB)
+| Input | Default | Size Preserved | Description |
+|-------|---------|----------------|-------------|
+| `keep_node` | `true` | ~570MB | Node.js toolchains (18.x, 20.x, 22.x) |
+| `keep_python` | `true` | ~1.7GB | Python toolchains (3.9, 3.10, 3.11, 3.12) |
+| `keep_go` | `true` | ~1.1GB | Go toolchains (1.21.x, 1.22.x) |
+| `keep_java` | `true` | ~1.5GB | Java JDKs (8, 11, 17, 21) |
+| `keep_dotnet` | `true` | ~4.2GB | .NET SDK (6.0, 7.0, 8.0) |
+| `keep_ruby` | `false` | ~313MB | Ruby toolchains |
 
-| Item | Size | Input | Default |
-|------|------|-------|---------|
-| Docker images | ~2GB | `clean_docker` | `true` |
-| Python toolchains | ~1.7GB | `keep_python` | `true` |
-| Java JDKs | ~1.5GB | `keep_java` | `true` |
-| Rust toolchains | ~600MB | `clean_rust` | `true` |
-| Node.js toolchains | ~570MB | `keep_node` | `true` |
-| Go toolchains | ~1.1GB | `keep_go` | `true` |
-| Miniconda | ~860MB | `clean_miniconda` | `true` |
-| Browsers | ~920MB | `clean_browsers` | `true` |
-| /home/packer | ~680MB | `clean_packer` | `true` |
-| /etc/skel duplicates | ~680MB | `clean_skel` | `true` |
+### Clean Options (Remove Items)
 
-### 🟢 Small Items (<100MB)
+These options let you **remove** items not needed for your build. Set to `true` to clean, `false` to keep.
 
-| Item | Size | Input | Default |
-|------|------|-------|---------|
-| Linuxbrew | ~188MB | `clean_linuxbrew` | `true` |
-| vcpkg | ~189MB | `clean_vcpkg` | `true` |
-| Gradle/Maven | varies | `clean_gradle_maven` | `true` |
-| Man pages/docs | ~234MB | `clean_docs` | `true` |
-| Ruby toolchains | ~313MB | `keep_ruby` | `false` |
+#### Large Items (>1GB)
 
-## Expected Results
+| Input | Default | Size Freed | Description |
+|-------|---------|------------|-------------|
+| `clean_android` | `true` | ~10GB | Android SDK, NDK, build-tools, platforms |
+| `clean_ghc_haskell` | `true` | ~3.7GB | GHC, Haskell toolchain, cabal |
+| `clean_swift` | `true` | ~3.2GB | Swift compiler and stdlib |
+| `clean_llvm_extra` | `true` | ~1.9GB | Older LLVM versions (keeps latest) |
+| `clean_codeql` | `true` | ~1.7GB | CodeQL CLI and queries |
+| `clean_azure_cli` | `true` | ~1.2GB | Azure CLI and extensions |
+| `clean_powershell` | `true` | ~1.3GB | PowerShell modules |
+| `clean_google_cloud` | `true` | ~1GB | Google Cloud SDK |
+| `clean_julia` | `true` | ~1GB | Julia language |
+| `clean_miniconda` | `true` | ~860MB | Miniconda distribution |
+| `clean_docker` | `true` | ~2GB | Docker images, volumes, build cache |
 
-| Metric | Before | After |
-|--------|--------|-------|
-| Disk Used | ~54GB | ~18-24GB |
-| Disk Available | ~92GB | ~120-128GB |
-| **Total Freed** | - | **~30-36GB** |
-| Cleanup Time | - | ~60-90 seconds |
+#### Medium Items (100MB-1GB)
 
-## Inputs Reference
+| Input | Default | Size Freed | Description |
+|-------|---------|------------|-------------|
+| `clean_browsers` | `true` | ~1.7GB | Firefox, Chromium, MS Edge |
+| `clean_rust` | `true` | ~600MB | Rust toolchains (rustup, cargo) |
+| `clean_packer` | `true` | ~680MB | /home/packer caches |
+| `clean_skel` | `true` | ~680MB | /etc/skel duplicates |
+| `clean_misc` | `true` | ~1.2GB | Docs, AWS CLI, pipx tools |
+| `clean_build_caches` | `true` | ~400MB | Gradle, Maven, vcpkg caches |
+| `clean_linuxbrew` | `true` | ~188MB | Homebrew for Linux |
 
-### Keep Options (Toolchains to Preserve)
+#### Special Options
 
-| Input | Default | Description |
-|-------|---------|-------------|
-| `keep_node` | `true` | Keep Node.js toolchains |
-| `keep_python` | `true` | Keep Python toolchains |
-| `keep_go` | `true` | Keep Go toolchains |
-| `keep_java` | `true` | Keep Java JDKs |
-| `keep_dotnet` | `true` | Keep .NET SDK |
-| `keep_ruby` | `false` | Keep Ruby toolchains |
+| Input | Default | Size Freed | Description |
+|-------|---------|------------|-------------|
+| `clean_swap` | `false` | ~3GB | Disable and remove swap file |
 
-### Clean Options (Items to Remove)
+---
 
-| Input | Default | Size Freed |
-|-------|---------|------------|
-| `clean_android` | `true` | ~10GB |
-| `clean_docker` | `true` | ~2GB |
-| `clean_codeql` | `true` | ~1.7GB |
-| `clean_ghc_haskell` | `true` | ~3.7GB |
-| `clean_swift` | `true` | ~3.2GB |
-| `clean_powershell` | `true` | ~1.3GB |
-| `clean_julia` | `true` | ~1GB |
-| `clean_google_cloud` | `true` | ~1GB |
-| `clean_azure_cli` | `true` | ~1.2GB |
-| `clean_miniconda` | `true` | ~860MB |
-| `clean_llvm_extra` | `true` | ~1.9GB |
-| `clean_browsers` | `true` | ~920MB |
-| `clean_rust` | `true` | ~600MB |
-| `clean_packer` | `true` | ~680MB |
-| `clean_skel` | `true` | ~680MB |
-| `clean_linuxbrew` | `true` | ~188MB |
-| `clean_vcpkg` | `true` | ~189MB |
-| `clean_gradle_maven` | `true` | varies |
-| `clean_docs` | `true` | ~234MB |
-| `clean_swap` | `false` | ~3GB |
+## 🎯 Cleanup Targets
 
-## Use Case Examples
+Based on deep analysis of GitHub Actions `ubuntu-latest` runner:
 
-### Node.js Projects
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    DISK USAGE BREAKDOWN                         │
+├─────────────────────────────────────────────────────────────────┤
+│  /usr                    37GB  ████████████████████             │
+│  ├─ /usr/local          19GB   ██████████                       │
+│  ├─ /usr/share          9.6GB  █████                            │
+│  └─ /usr/lib            6.6GB  ███                              │
+│                                                                 │
+│  /opt                   8.7GB  █████                            │
+│  ├─ hostedtoolcache     5.4GB  ███                              │
+│  └─ microsoft           3.3GB  ██                               │
+│                                                                 │
+│  Android SDK            10GB   ██████                           │
+│  .NET SDK               4.2GB  ██                               │
+│  GHC/Haskell            3.7GB  ██                               │
+│  Swift                  3.2GB  ██                               │
+│  CodeQL                 1.7GB  █                                │
+│  Docker                 2GB    █                                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Expected Results
+
+| Metric | Before | After | Improvement |
+|--------|--------|-------|-------------|
+| Disk Used | ~54GB | ~18-24GB | -30GB |
+| Disk Available | ~92GB | ~120-128GB | +30GB |
+| Cleanup Time | — | 60-90 seconds | — |
+
+---
+
+## 💡 Use Case Examples
+
+### Node.js / JavaScript Projects
+
 ```yaml
-- uses: hoshiyomiX/aggressive-disk-cleaner@main
+- name: 🧹 Free disk space for Node.js build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
   with:
     keep_node: true
     keep_python: false
@@ -158,35 +187,90 @@ Based on deep scan analysis of GitHub Actions runner:
     keep_dotnet: false
 ```
 
-### Python Projects
+### Python / ML Projects
+
 ```yaml
-- uses: hoshiyomiX/aggressive-disk-cleaner@main
+- name: 🧹 Free disk space for Python build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
   with:
     keep_node: false
     keep_python: true
     keep_go: false
     keep_java: false
     keep_dotnet: false
+    clean_miniconda: false  # Keep conda for ML projects
 ```
 
 ### Android Projects
+
 ```yaml
-- uses: hoshiyomiX/aggressive-disk-cleaner@main
+- name: 🧹 Free disk space for Android build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
   with:
-    clean_android: false  # Keep Android SDK
-    clean_docker: false   # If using Docker builds
+    clean_android: false    # Keep Android SDK!
+    keep_java: true         # Keep JDK for Android
+    keep_dotnet: false
+    clean_ghc_haskell: true
+    clean_swift: true
 ```
 
-### Docker Builds
+### Docker / Container Builds
+
 ```yaml
-- uses: hoshiyomiX/aggressive-disk-cleaner@main
+- name: 🧹 Free disk space for Docker build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
   with:
-    clean_docker: false   # Keep Docker
+    clean_docker: false     # Keep Docker daemon
+    clean_android: true     # Remove unused
+    clean_ghc_haskell: true
+    clean_swift: true
+```
+
+### Go Projects
+
+```yaml
+- name: 🧹 Free disk space for Go build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
+  with:
+    keep_go: true
+    keep_node: false
+    keep_python: false
+    keep_java: false
+    keep_dotnet: false
+```
+
+### Java / Kotlin Projects
+
+```yaml
+- name: 🧹 Free disk space for Java build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
+  with:
+    keep_java: true
+    keep_node: false
+    keep_python: false
+    keep_go: false
+    keep_dotnet: false
+    clean_build_caches: false  # Keep Gradle/Maven caches
+```
+
+### .NET / C# Projects
+
+```yaml
+- name: 🧹 Free disk space for .NET build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
+  with:
+    keep_dotnet: true
+    keep_node: false
+    keep_python: false
+    keep_go: false
+    keep_java: false
 ```
 
 ### Maximum Cleanup (All Tools Removed)
+
 ```yaml
-- uses: hoshiyomiX/aggressive-disk-cleaner@main
+- name: 🧹 Maximum disk space cleanup
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
   with:
     keep_node: false
     keep_python: false
@@ -195,37 +279,133 @@ Based on deep scan analysis of GitHub Actions runner:
     keep_dotnet: false
     keep_ruby: false
     clean_swap: true
+    clean_docker: true
 ```
 
-## How It Works
+---
 
-1. **Phase 1**: Essential cleanups (APT, temp, caches)
-2. **Phase 2**: Large tool removal (Android, CodeQL, GHC, Swift)
-3. **Phase 3**: Medium tool removal (PowerShell, Julia, Cloud SDKs)
-4. **Phase 4**: Optional toolchains (Node, Python, Go, Java)
-5. **Phase 5**: Additional cleanups (Packer, Skel, Linuxbrew)
-6. **Phase 6**: Swap file cleanup
+## 🔧 How It Works
 
-All phases use parallel operations for maximum speed.
+The cleanup process runs in 6 optimized phases:
 
-## Disk Scanner
+```
+Phase 1: Essential Cleanups (Always Run)
+├── APT package cache
+├── Temp directories (/tmp, /var/tmp)
+├── Runner caches
+├── pip caches
+├── npm/yarn caches
+└── PyPy toolchain
 
-Run deep analysis of runner disk usage:
+Phase 2: Large Tool Cleanups
+├── CodeQL (~1.7GB)
+├── Android SDK/NDK (~10GB)
+├── Docker images/volumes (~2GB)
+├── GHC/Haskell (~3.7GB)
+├── Swift (~3.2GB)
+└── .NET SDK (if not keeping)
+
+Phase 3: Medium Tool Cleanups
+├── PowerShell (~1.3GB)
+├── Julia (~1GB)
+├── Google Cloud SDK (~1GB)
+├── Azure CLI (~1.2GB)
+├── Miniconda (~860MB)
+├── LLVM extra versions (~1.9GB)
+└── Browsers (~1.7GB)
+
+Phase 4: Optional Toolchain Cleanups
+├── Node.js (if not keeping)
+├── Python (if not keeping)
+├── Go (if not keeping)
+├── Java (if not keeping)
+├── Ruby (if not keeping)
+└── Rust (~600MB)
+
+Phase 5: Additional Cleanups
+├── /home/packer caches
+├── /etc/skel duplicates
+├── Linuxbrew
+├── Build caches (Gradle/Maven/vcpkg)
+└── Misc (docs, AWS CLI, pipx)
+
+Phase 6: Swap Cleanup (Optional)
+└── Disable and remove swap file (~3GB)
+```
+
+All phases use **parallel bash subshells** for maximum speed.
+
+---
+
+## 📊 Disk Scanner
+
+Analyze disk usage on the runner with the included scanner workflow:
 
 ```bash
+# Trigger via GitHub CLI
 gh workflow run disk-scan.yml
+
+# Or via API
+gh api repos/{owner}/{repo}/actions/workflows/disk-scan.yml/dispatches \
+  -f ref="main"
 ```
 
-Results include:
-- Complete /usr and /opt breakdown
+The scanner provides:
+- Complete `/usr` and `/opt` directory breakdown
 - All toolchain versions and sizes
 - Cleanup recommendations with calculated savings
 - Essential vs conditional keep analysis
 
-## Contributing
+---
 
-Contributions welcome! Please submit issues or pull requests.
+## 🤝 Contributing
 
-## License
+Contributions are welcome! Here's how you can help:
 
-MIT License
+1. **Report Issues** — Found a bug or have a suggestion? [Open an issue](../../issues/new)
+2. **Submit PRs** — Fork the repo and submit a pull request
+3. **Improve Docs** — Help make documentation clearer
+4. **Share Results** — Share your cleanup results and configurations
+
+### Development
+
+```bash
+# Clone the repository
+git clone https://github.com/hoshiyomiX/aggressive-disk-cleaner.git
+cd aggressive-disk-cleaner
+
+# Run the disk scanner
+gh workflow run disk-scan.yml
+
+# Test the cleaner
+gh workflow run aggressive-disk-cleaner.yml
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+---
+
+## ⚠️ Disclaimer
+
+This action removes pre-installed toolchains from GitHub Actions runners. While it preserves specified toolchains, ensure you:
+
+- Set `keep_*` options correctly for your build requirements
+- Set `clean_*` options to `false` for items you need
+- Test in a non-critical workflow first
+- Review the job summary to verify cleanup results
+
+---
+
+<div align="center">
+
+**[⬆ Back to Top](#-aggressive-disk-cleaner)**
+
+Made with ❤️ by [hoshiyomiX](https://github.com/hoshiyomiX)
+
+If this project helps you, consider giving it a ⭐!
+
+</div>
