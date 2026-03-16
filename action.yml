@@ -7,6 +7,12 @@ branding:
   color: 'red'
 
 inputs:
+  # APK Build Mode (for Android app builds)
+  keep_apk_build:
+    description: 'Keep dependencies for APK builds (Android SDK build-tools/platforms, Java, Node.js, Gradle cache) - removes NDK to save ~3GB'
+    required: false
+    default: false
+
   # Essential build tools (keep options)
   keep_node:
     description: 'Keep Node.js toolchains (~570MB)'
@@ -161,7 +167,14 @@ runs:
         fi
         
         # Android SDK
-        if [ "${{ inputs.clean_android }}" = "true" ]; then
+        if [ "${{ inputs.keep_apk_build }}" = "true" ]; then
+          echo "[Android] APK build mode: Keeping SDK, removing NDK only... (~3GB saved)"
+          # Keep: build-tools, platforms, cmdline-tools (needed for APK)
+          # Remove: NDK (not needed for most APK builds)
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/cmake
+          sudo rm -rf /usr/local/lib/android/sdk/extras
+        elif [ "${{ inputs.clean_android }}" = "true" ]; then
           echo "[Android] Removing... (~10GB)"
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           sudo rm -rf /usr/local/lib/android/sdk/build-tools
@@ -254,8 +267,10 @@ runs:
       run: |
         echo "=== Phase 4: Optional Toolchain Cleanups ==="
         
-        # Node.js
-        if [ "${{ inputs.keep_node }}" != "true" ]; then
+        # Node.js (keep if keep_apk_build or keep_node)
+        if [ "${{ inputs.keep_apk_build }}" = "true" ]; then
+          echo "[Node.js] Keeping for APK build... (~570MB)"
+        elif [ "${{ inputs.keep_node }}" != "true" ]; then
           echo "[Node.js] Removing... (~570MB)"
           sudo rm -rf /opt/hostedtoolcache/node
           sudo rm -rf /home/runner/.npm /home/runner/.nvm
@@ -275,8 +290,10 @@ runs:
           sudo rm -rf /home/runner/go
         fi
         
-        # Java
-        if [ "${{ inputs.keep_java }}" != "true" ]; then
+        # Java (keep if keep_apk_build or keep_java)
+        if [ "${{ inputs.keep_apk_build }}" = "true" ]; then
+          echo "[Java] Keeping for APK build... (~1.5GB)"
+        elif [ "${{ inputs.keep_java }}" != "true" ]; then
           echo "[Java] Removing... (~1.5GB)"
           sudo rm -rf /usr/lib/jvm
         fi
@@ -323,8 +340,10 @@ runs:
           sudo rm -rf /home/linuxbrew/.linuxbrew
         fi
         
-        # Build caches (Gradle/Maven/vcpkg)
-        if [ "${{ inputs.clean_build_caches }}" = "true" ]; then
+        # Build caches (Gradle/Maven/vcpkg) - keep if keep_apk_build
+        if [ "${{ inputs.keep_apk_build }}" = "true" ]; then
+          echo "[Build Caches] Keeping for APK build... (~400MB)"
+        elif [ "${{ inputs.clean_build_caches }}" = "true" ]; then
           echo "[Build Caches] Cleaning... (~400MB)"
           sudo rm -rf /home/runner/.gradle /home/runner/.m2
           sudo rm -rf /home/packer/.gradle /home/packer/.m2

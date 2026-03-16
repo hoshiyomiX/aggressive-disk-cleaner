@@ -89,6 +89,7 @@ These options let you **keep** toolchains needed for your build. Set to `true` t
 
 | Input | Default | Size Preserved | Description |
 |-------|---------|----------------|-------------|
+| `keep_apk_build` | `false` | ~7GB | **APK Build Mode** - Keeps Android SDK (build-tools/platforms), Java, Node.js, Gradle cache. Removes NDK to save ~3GB |
 | `keep_node` | `true` | ~570MB | Node.js toolchains (18.x, 20.x, 22.x) |
 | `keep_python` | `true` | ~1.7GB | Python toolchains (3.9, 3.10, 3.11, 3.12) |
 | `keep_go` | `true` | ~1.1GB | Go toolchains (1.21.x, 1.22.x) |
@@ -213,6 +214,24 @@ Based on deep analysis of GitHub Actions `ubuntu-latest` runner:
     clean_ghc_haskell: true
     clean_swift: true
 ```
+
+### APK Builds (Android App / React Native / Capacitor)
+
+```yaml
+- name: 🧹 Free disk space for APK build
+  uses: hoshiyomiX/aggressive-disk-cleaner@v1
+  with:
+    keep_apk_build: true    # One-liner: keeps SDK build-tools/platforms, Java, Node.js, Gradle cache
+```
+
+This single option automatically:
+- ✅ **Keeps** Android SDK build-tools, platforms, cmdline-tools (~7GB)
+- ✅ **Keeps** Java JDK (~1.5GB) - Required for Gradle
+- ✅ **Keeps** Node.js (~570MB) - For React Native/Capacitor
+- ✅ **Keeps** Gradle/Maven cache (~400MB) - Faster builds
+- ❌ **Removes** Android NDK (~3GB) - Not needed for most APK builds
+
+> **Note:** Using `keep_apk_build: true` overrides individual `clean_android`, `keep_java`, `keep_node`, and `clean_build_caches` settings.
 
 ### Docker / Container Builds
 
