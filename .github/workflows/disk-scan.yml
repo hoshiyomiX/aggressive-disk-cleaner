@@ -1,0 +1,222 @@
+name: Disk Space Scanner
+
+on:
+  workflow_dispatch:
+
+jobs:
+  scan-disk-space:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: write
+    
+    steps:
+      - name: Initial Disk Space Check
+        run: |
+          echo "=========================================="
+          echo "INITIAL DISK SPACE STATUS"
+          echo "=========================================="
+          df -h
+          echo ""
+          echo "=========================================="
+          echo "INODE STATUS"
+          echo "=========================================="
+          df -i
+          
+      - name: Scan Root Directory Sizes
+        run: |
+          echo "=========================================="
+          echo "TOP-LEVEL DIRECTORY SIZES IN ROOT"
+          echo "=========================================="
+          sudo du -sh /* 2>/dev/null | sort -rh | head -30
+          
+      - name: Scan Toolchains and Build Caches
+        run: |
+          echo "=========================================="
+          echo "TOOLCHAINS & BUILD CACHES ANALYSIS"
+          echo "=========================================="
+          
+          echo "--- Python ---"
+          sudo du -sh /opt/hostedtoolcache/Python/* 2>/dev/null | sort -rh || echo "No Python cache found"
+          sudo du -sh ~/.cache/pip 2>/dev/null || echo "No pip cache"
+          
+          echo ""
+          echo "--- Node.js ---"
+          sudo du -sh /opt/hostedtoolcache/node/* 2>/dev/null | sort -rh || echo "No Node cache found"
+          sudo du -sh ~/.npm 2>/dev/null || echo "No npm cache"
+          
+          echo ""
+          echo "--- Go ---"
+          sudo du -sh /opt/hostedtoolcache/go/* 2>/dev/null | sort -rh || echo "No Go cache found"
+          sudo du -sh ~/go/pkg 2>/dev/null || echo "No Go pkg cache"
+          sudo du -sh ~/go/cache 2>/dev/null || echo "No Go build cache"
+          
+          echo ""
+          echo "--- Rust ---"
+          sudo du -sh ~/.cargo 2>/dev/null || echo "No cargo cache"
+          sudo du -sh ~/.rustup 2>/dev/null || echo "No rustup cache"
+          
+          echo ""
+          echo "--- Java ---"
+          sudo du -sh /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/* 2>/dev/null | sort -rh || echo "No Java cache found"
+          sudo du -sh ~/.gradle 2>/dev/null || echo "No Gradle cache"
+          sudo du -sh ~/.m2 2>/dev/null || echo "No Maven cache"
+          
+          echo ""
+          echo "--- Ruby ---"
+          sudo du -sh /opt/hostedtoolcache/Ruby/* 2>/dev/null | sort -rh || echo "No Ruby cache found"
+          sudo du -sh ~/.gem 2>/dev/null || echo "No gem cache"
+          
+          echo ""
+          echo "--- .NET ---"
+          sudo du -sh /opt/hostedtoolcache/dotnet/* 2>/dev/null | sort -rh || echo "No .NET cache found"
+          sudo du -sh ~/.nuget 2>/dev/null || echo "No NuGet cache"
+          
+          echo ""
+          echo "--- CodeQL ---"
+          sudo du -sh /opt/hostedtoolcache/CodeQL/* 2>/dev/null | sort -rh || echo "No CodeQL cache found"
+          
+      - name: Scan System Caches and Temp
+        run: |
+          echo "=========================================="
+          echo "SYSTEM CACHES & TEMP DIRECTORIES"
+          echo "=========================================="
+          
+          echo "--- /var ---"
+          sudo du -sh /var/* 2>/dev/null | sort -rh | head -20
+          
+          echo ""
+          echo "--- /usr ---"
+          sudo du -sh /usr/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "--- Temp directories ---"
+          sudo du -sh /tmp 2>/dev/null || echo "/tmp not accessible"
+          sudo du -sh /var/tmp 2>/dev/null || echo "/var/tmp not accessible"
+          
+          echo ""
+          echo "--- APT cache ---"
+          sudo du -sh /var/cache/apt 2>/dev/null || echo "No APT cache"
+          sudo du -sh /var/lib/apt 2>/dev/null || echo "No APT lib"
+          
+          echo ""
+          echo "--- Snap packages ---"
+          sudo du -sh /snap/* 2>/dev/null | sort -rh || echo "No snap packages"
+          
+          echo ""
+          echo "--- Docker ---"
+          sudo du -sh /var/lib/docker 2>/dev/null || echo "No Docker directory"
+          
+      - name: Scan Large Files and Duplicates
+        run: |
+          echo "=========================================="
+          echo "LARGE FILES SCAN (>100MB)"
+          echo "=========================================="
+          sudo find / -type f -size +100M 2>/dev/null | head -50
+          
+          echo ""
+          echo "=========================================="
+          echo "SHARED LIBRARIES SIZE"
+          echo "=========================================="
+          sudo du -sh /usr/lib/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "=========================================="
+          echo "LOCALE FILES SIZE"
+          echo "=========================================="
+          sudo du -sh /usr/share/locale 2>/dev/null || echo "No locale"
+          sudo du -sh /usr/share/man 2>/dev/null || echo "No man pages"
+          sudo du -sh /usr/share/doc 2>/dev/null || echo "No docs"
+          
+      - name: Scan GitHub Actions Specific
+        run: |
+          echo "=========================================="
+          echo "GITHUB ACTIONS RUNNER FILES"
+          echo "=========================================="
+          sudo du -sh /home/runner 2>/dev/null || echo "No /home/runner"
+          sudo du -sh /home/runner/work 2>/dev/null || echo "No work directory"
+          sudo du -sh /home/runner/.cache 2>/dev/null || echo "No runner cache"
+          sudo du -sh /home/runner/.local 2>/dev/null || echo "No runner local"
+          
+          echo ""
+          echo "--- Actions Runner Internal ---"
+          sudo du -sh /actions-runner 2>/dev/null || echo "No /actions-runner"
+          sudo du -sh /home/runner/runners 2>/dev/null || echo "No runners directory"
+          
+      - name: Generate Summary Report
+        run: |
+          echo "=========================================="
+          echo "DISK SPACE SCAN SUMMARY"
+          echo "=========================================="
+          
+          # Calculate totals for each category
+          echo ""
+          echo "=== TOTAL SIZES BY CATEGORY ==="
+          
+          echo ""
+          echo "[TOOLCHAINS]"
+          TOOLCHAIN_TOTAL=0
+          for path in /opt/hostedtoolcache/*; do
+            if [ -d "$path" ]; then
+              size=$(sudo du -sm "$path" 2>/dev/null | cut -f1)
+              echo "$path: ${size}MB"
+              TOOLCHAIN_TOTAL=$((TOOLCHAIN_TOTAL + size))
+            fi
+          done
+          echo "TOTAL TOOLCHAINS: ${TOOLCHAIN_TOTAL}MB"
+          
+          echo ""
+          echo "[LANGUAGE CACHES]"
+          for cache in ~/.cargo ~/.rustup ~/.npm ~/.cache/pip ~/.gradle ~/.m2 ~/.nuget ~/.gem ~/go/pkg ~/go/cache; do
+            if [ -d "$cache" ]; then
+              size=$(sudo du -sm "$cache" 2>/dev/null | cut -f1)
+              echo "$cache: ${size}MB"
+            fi
+          done
+          
+          echo ""
+          echo "[SYSTEM CACHES]"
+          for sys in /var/cache/apt /var/lib/apt /var/lib/docker /snap; do
+            if [ -d "$sys" ]; then
+              size=$(sudo du -sm "$sys" 2>/dev/null | cut -f1)
+              echo "$sys: ${size}MB"
+            fi
+          done
+          
+          echo ""
+          echo "=== FINAL DISK STATUS ==="
+          df -h /
+          
+      - name: Create Scan Results Artifact
+        run: |
+          mkdir -p scan-results
+          {
+            echo "# Disk Space Scan Results"
+            echo ""
+            echo "## System Information"
+            echo "- Runner OS: ${{ runner.os }}"
+            echo "- Architecture: ${{ runner.arch }}"
+            echo "- Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            echo "## Disk Usage Summary"
+            df -h
+            echo ""
+            echo "## Toolchains Sizes"
+            sudo du -sh /opt/hostedtoolcache/* 2>/dev/null | sort -rh
+            echo ""
+            echo "## Largest Directories"
+            sudo du -sh /* 2>/dev/null | sort -rh | head -20
+            echo ""
+            echo "## Language Caches"
+            sudo du -sh ~/.cargo ~/.rustup ~/.npm ~/.cache/pip ~/.gradle ~/.m2 ~/.nuget ~/.gem ~/go/pkg 2>/dev/null || true
+            echo ""
+            echo "## System Caches"
+            sudo du -sh /var/cache/apt /var/lib/apt /snap /var/lib/docker 2>/dev/null || true
+          } > scan-results/scan-report.md
+          
+      - name: Upload Scan Results
+        uses: actions/upload-artifact@v4
+        with:
+          name: disk-scan-results
+          path: scan-results/
+          retention-days: 1
