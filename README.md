@@ -89,7 +89,6 @@ These options let you **keep** toolchains needed for your build. Set to `true` t
 
 | Input | Default | Size Preserved | Description |
 |-------|---------|----------------|-------------|
-| `keep_recovery_build` | `false` | ~13GB+ | **Custom Recovery Build Mode** - Keeps all dependencies for TWRP/OrangeFox builds (Android SDK, Java, Python, build caches, Git) |
 | `keep_node` | `true` | ~570MB | Node.js toolchains (18.x, 20.x, 22.x) |
 | `keep_python` | `true` | ~1.7GB | Python toolchains (3.9, 3.10, 3.11, 3.12) |
 | `keep_go` | `true` | ~1.1GB | Go toolchains (1.21.x, 1.22.x) |
@@ -214,24 +213,6 @@ Based on deep analysis of GitHub Actions `ubuntu-latest` runner:
     clean_ghc_haskell: true
     clean_swift: true
 ```
-
-### Custom Recovery Builds (TWRP / OrangeFox / PBRP)
-
-```yaml
-- name: 🧹 Free disk space for Recovery build
-  uses: hoshiyomiX/aggressive-disk-cleaner@v1
-  with:
-    keep_recovery_build: true    # One-liner: keeps all recovery build dependencies!
-```
-
-This single option automatically preserves:
-- ✅ Android SDK/NDK (~10GB) - Required for building recovery
-- ✅ Java JDK (~1.5GB) - Required for Android build system
-- ✅ Python (~1.7GB) - Required for build scripts
-- ✅ Build caches (Gradle/Maven) - Speeds up subsequent builds
-- ✅ Git - Required for source fetching
-
-> **Note:** Using `keep_recovery_build: true` overrides individual `clean_android`, `keep_java`, `keep_python`, and `clean_build_caches` settings.
 
 ### Docker / Container Builds
 

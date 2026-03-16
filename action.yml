@@ -7,12 +7,6 @@ branding:
   color: 'red'
 
 inputs:
-  # Custom Recovery Build Mode
-  keep_recovery_build:
-    description: 'Keep all dependencies for custom recovery builds (TWRP, OrangeFox, etc.) - preserves Android SDK, Java, build caches, Python, and Git'
-    required: false
-    default: false
-
   # Essential build tools (keep options)
   keep_node:
     description: 'Keep Node.js toolchains (~570MB)'
@@ -166,10 +160,8 @@ runs:
           sudo rm -rf /opt/hostedtoolcache/CodeQL
         fi
         
-        # Android SDK (skip if keep_recovery_build is true)
-        if [ "${{ inputs.keep_recovery_build }}" = "true" ]; then
-          echo "[Android] Keeping for recovery build... (~10GB)"
-        elif [ "${{ inputs.clean_android }}" = "true" ]; then
+        # Android SDK
+        if [ "${{ inputs.clean_android }}" = "true" ]; then
           echo "[Android] Removing... (~10GB)"
           sudo rm -rf /usr/local/lib/android/sdk/ndk
           sudo rm -rf /usr/local/lib/android/sdk/build-tools
@@ -269,10 +261,8 @@ runs:
           sudo rm -rf /home/runner/.npm /home/runner/.nvm
         fi
         
-        # Python (skip if keep_recovery_build is true)
-        if [ "${{ inputs.keep_recovery_build }}" = "true" ]; then
-          echo "[Python] Keeping for recovery build... (~1.7GB)"
-        elif [ "${{ inputs.keep_python }}" != "true" ]; then
+        # Python
+        if [ "${{ inputs.keep_python }}" != "true" ]; then
           echo "[Python] Removing... (~1.7GB)"
           sudo rm -rf /opt/hostedtoolcache/Python
           sudo rm -rf /home/runner/.cache/pip
@@ -285,10 +275,8 @@ runs:
           sudo rm -rf /home/runner/go
         fi
         
-        # Java (skip if keep_recovery_build is true)
-        if [ "${{ inputs.keep_recovery_build }}" = "true" ]; then
-          echo "[Java] Keeping for recovery build... (~1.5GB)"
-        elif [ "${{ inputs.keep_java }}" != "true" ]; then
+        # Java
+        if [ "${{ inputs.keep_java }}" != "true" ]; then
           echo "[Java] Removing... (~1.5GB)"
           sudo rm -rf /usr/lib/jvm
         fi
@@ -335,10 +323,8 @@ runs:
           sudo rm -rf /home/linuxbrew/.linuxbrew
         fi
         
-        # Build caches (Gradle/Maven/vcpkg) - skip if keep_recovery_build is true
-        if [ "${{ inputs.keep_recovery_build }}" = "true" ]; then
-          echo "[Build Caches] Keeping for recovery build... (~400MB)"
-        elif [ "${{ inputs.clean_build_caches }}" = "true" ]; then
+        # Build caches (Gradle/Maven/vcpkg)
+        if [ "${{ inputs.clean_build_caches }}" = "true" ]; then
           echo "[Build Caches] Cleaning... (~400MB)"
           sudo rm -rf /home/runner/.gradle /home/runner/.m2
           sudo rm -rf /home/packer/.gradle /home/packer/.m2
