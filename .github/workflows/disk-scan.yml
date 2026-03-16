@@ -28,337 +28,467 @@ jobs:
           echo "=========================================="
           mount | grep -E "^/dev|^tmpfs|^efivarfs"
           
-      - name: Scan Non-Root Partitions
+      - name: Deep Scan /opt Directory
         run: |
           echo "=========================================="
-          echo "NON-ROOT PARTITION ANALYSIS"
+          echo "DEEP SCAN: /opt DIRECTORY"
           echo "=========================================="
           
-          echo "--- /boot partition ---"
-          if mountpoint -q /boot 2>/dev/null; then
-            echo "Mounted as separate partition:"
-            df -h /boot
+          echo "=== Top-level /opt contents ==="
+          sudo du -sh /opt/* 2>/dev/null | sort -rh
+          
+          echo ""
+          echo "=== /opt/hostedtoolcache breakdown ==="
+          if [ -d "/opt/hostedtoolcache" ]; then
+            sudo du -sh /opt/hostedtoolcache/* 2>/dev/null | sort -rh
+            
             echo ""
-            echo "Contents of /boot:"
-            sudo du -sh /boot/* 2>/dev/null | sort -rh | head -20
+            echo "--- Python versions ---"
+            if [ -d "/opt/hostedtoolcache/Python" ]; then
+              sudo du -sh /opt/hostedtoolcache/Python/* 2>/dev/null | sort -rh
+              echo ""
+              echo "Python subdirectories (first version):"
+              sudo du -sh /opt/hostedtoolcache/Python/3.*/lib/python*/site-packages 2>/dev/null | sort -rh | head -10
+            fi
+            
             echo ""
-            echo "Old kernels (potentially removable):"
-            ls -la /boot/vmlinuz-* 2>/dev/null | head -20
+            echo "--- Node.js versions ---"
+            if [ -d "/opt/hostedtoolcache/node" ]; then
+              sudo du -sh /opt/hostedtoolcache/node/* 2>/dev/null | sort -rh
+            fi
+            
             echo ""
-            echo "Initrd files:"
-            ls -lh /boot/initrd* /boot/initramfs* 2>/dev/null | head -20
-          else
-            echo "/boot is not a separate partition"
+            echo "--- Go versions ---"
+            if [ -d "/opt/hostedtoolcache/go" ]; then
+              sudo du -sh /opt/hostedtoolcache/go/* 2>/dev/null | sort -rh
+            fi
+            
+            echo ""
+            echo "--- CodeQL ---"
+            if [ -d "/opt/hostedtoolcache/CodeQL" ]; then
+              sudo du -sh /opt/hostedtoolcache/CodeQL/* 2>/dev/null | sort -rh
+              echo ""
+              echo "CodeQL subdirectories:"
+              sudo du -sh /opt/hostedtoolcache/CodeQL/*/codeql/* 2>/dev/null | sort -rh | head -10
+            fi
+            
+            echo ""
+            echo "--- PyPy ---"
+            if [ -d "/opt/hostedtoolcache/PyPy" ]; then
+              sudo du -sh /opt/hostedtoolcache/PyPy/* 2>/dev/null | sort -rh
+            fi
+            
+            echo ""
+            echo "--- Ruby ---"
+            if [ -d "/opt/hostedtoolcache/Ruby" ]; then
+              sudo du -sh /opt/hostedtoolcache/Ruby/* 2>/dev/null | sort -rh
+            fi
+            
+            echo ""
+            echo "--- Java ---"
+            if [ -d "/opt/hostedtoolcache/Java_Temurin-Hotspot_jdk" ]; then
+              sudo du -sh /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/* 2>/dev/null | sort -rh
+            fi
+            
+            echo ""
+            echo "--- .NET/dotnet ---"
+            if [ -d "/opt/hostedtoolcache/dotnet" ]; then
+              sudo du -sh /opt/hostedtoolcache/dotnet/* 2>/dev/null | sort -rh
+            fi
           fi
           
           echo ""
-          echo "--- /boot/efi partition (EFI System Partition) ---"
-          if mountpoint -q /boot/efi 2>/dev/null; then
-            echo "Mounted as EFI System Partition:"
-            df -h /boot/efi
+          echo "=== Other /opt contents ==="
+          for dir in /opt/*; do
+            if [ "$dir" != "/opt/hostedtoolcache" ] && [ -d "$dir" ]; then
+              echo ""
+              echo "$dir:"
+              sudo du -sh "$dir"/* 2>/dev/null | sort -rh | head -10
+            fi
+          done
+
+      - name: Deep Scan /usr Directory
+        run: |
+          echo "=========================================="
+          echo "DEEP SCAN: /usr DIRECTORY"
+          echo "=========================================="
+          
+          echo "=== Top-level /usr contents ==="
+          sudo du -sh /usr/* 2>/dev/null | sort -rh
+          
+          echo ""
+          echo "=========================================="
+          echo "=== /usr/local breakdown ==="
+          echo "=========================================="
+          if [ -d "/usr/local" ]; then
+            sudo du -sh /usr/local/* 2>/dev/null | sort -rh
+            
             echo ""
-            echo "Contents of /boot/efi:"
-            sudo du -sh /boot/efi/* 2>/dev/null | sort -rh | head -20
-          else
-            echo "/boot/efi is not a separate partition"
+            echo "--- /usr/local/lib ---"
+            sudo du -sh /usr/local/lib/* 2>/dev/null | sort -rh | head -20
+            
+            echo ""
+            echo "--- /usr/local/bin ---"
+            sudo du -sh /usr/local/bin/* 2>/dev/null | sort -rh | head -20
+            
+            echo ""
+            echo "--- /usr/local/share ---"
+            sudo du -sh /usr/local/share/* 2>/dev/null | sort -rh | head -15
+            
+            echo ""
+            echo "--- Android SDK ---"
+            if [ -d "/usr/local/lib/android" ]; then
+              sudo du -sh /usr/local/lib/android/* 2>/dev/null | sort -rh
+              echo ""
+              echo "Android SDK subdirectories:"
+              sudo du -sh /usr/local/lib/android/sdk/* 2>/dev/null | sort -rh
+            fi
+            
+            echo ""
+            echo "--- Google Cloud SDK ---"
+            if [ -d "/usr/local/share/google-cloud-sdk" ] || [ -d "/usr/local/google-cloud-sdk" ]; then
+              sudo du -sh /usr/local/share/google-cloud-sdk 2>/dev/null || sudo du -sh /usr/local/google-cloud-sdk 2>/dev/null
+            fi
+            
+            echo ""
+            echo "--- GHC/Haskell ---"
+            if [ -d "/usr/local/.ghcup" ]; then
+              sudo du -sh /usr/local/.ghcup/* 2>/dev/null | sort -rh
+              sudo du -sh /usr/local/.ghcup/ghc/* 2>/dev/null | sort -rh | head -5
+            fi
+            
+            echo ""
+            echo "--- Julia ---"
+            for julia in /usr/local/julia*; do
+              if [ -d "$julia" ]; then
+                echo "$julia:"
+                sudo du -sh "$julia"/* 2>/dev/null | sort -rh | head -10
+              fi
+            done
+            
+            echo ""
+            echo "--- Swift ---"
+            if [ -d "/usr/local/share/swift" ] || [ -d "/usr/local/swift" ]; then
+              sudo du -sh /usr/local/share/swift 2>/dev/null || sudo du -sh /usr/local/swift 2>/dev/null
+            fi
+          fi
+          
+      - name: Deep Scan /usr/lib
+        run: |
+          echo "=========================================="
+          echo "DEEP SCAN: /usr/lib DIRECTORY"
+          echo "=========================================="
+          
+          echo "=== Largest /usr/lib directories ==="
+          sudo du -sh /usr/lib/* 2>/dev/null | sort -rh | head -25
+          
+          echo ""
+          echo "=== JVM (Java Virtual Machines) ==="
+          if [ -d "/usr/lib/jvm" ]; then
+            sudo du -sh /usr/lib/jvm/* 2>/dev/null | sort -rh
+            echo ""
+            for jvm in /usr/lib/jvm/*; do
+              if [ -d "$jvm" ]; then
+                echo "$(basename $jvm) breakdown:"
+                sudo du -sh "$jvm"/* 2>/dev/null | sort -rh | head -5
+                echo ""
+              fi
+            done
           fi
           
           echo ""
-          echo "--- tmpfs filesystems ---"
-          echo "/dev/shm:"
-          df -h /dev/shm
-          sudo du -sh /dev/shm/* 2>/dev/null | sort -rh | head -10 || echo "Empty or not accessible"
-          
-          echo ""
-          echo "/run:"
-          df -h /run
-          sudo du -sh /run/* 2>/dev/null | sort -rh | head -15
-          
-          echo ""
-          echo "/run/lock:"
-          df -h /run/lock
-          sudo du -sh /run/lock/* 2>/dev/null | sort -rh | head -10 || echo "Empty"
-          
-      - name: Scan Memory and Runtime Filesystems
-        run: |
-          echo "=========================================="
-          echo "MEMORY & RUNTIME FILESYSTEMS"
-          echo "=========================================="
-          
-          echo "--- efivarfs (EFI variables) ---"
-          if mountpoint -q /sys/firmware/efi/efivars 2>/dev/null; then
-            df -h /sys/firmware/efi/efivars
-            echo "Size of EFI variables:"
-            sudo du -sh /sys/firmware/efi/efivars 2>/dev/null || echo "Not accessible"
-          else
-            echo "efivarfs not mounted"
-          fi
-          
-          echo ""
-          echo "--- cgroup filesystems ---"
-          mount | grep cgroup | head -5
-          echo ""
-          echo "cgroup memory usage:"
-          sudo du -sh /sys/fs/cgroup/* 2>/dev/null | sort -rh | head -10 || echo "Not accessible"
-          
-          echo ""
-          echo "--- /proc filesystem ---"
-          echo "Note: /proc is virtual, shows kernel/process info"
-          ls -la /proc | head -20
-          
-          echo ""
-          echo "--- /sys filesystem ---"
-          echo "Note: /sys is virtual, shows kernel/hardware info"
-          sudo du -sh /sys/* 2>/dev/null | sort -rh | head -10
-          
-      - name: Scan Root Directory Sizes
-        run: |
-          echo "=========================================="
-          echo "TOP-LEVEL DIRECTORY SIZES IN ROOT"
-          echo "=========================================="
-          sudo du -sh /* 2>/dev/null | sort -rh | head -30
-          
-      - name: Scan Toolchains and Build Caches
-        run: |
-          echo "=========================================="
-          echo "TOOLCHAINS & BUILD CACHES ANALYSIS"
-          echo "=========================================="
-          
-          echo "--- Python ---"
-          sudo du -sh /opt/hostedtoolcache/Python/* 2>/dev/null | sort -rh || echo "No Python cache found"
-          sudo du -sh ~/.cache/pip 2>/dev/null || echo "No pip cache"
-          
-          echo ""
-          echo "--- Node.js ---"
-          sudo du -sh /opt/hostedtoolcache/node/* 2>/dev/null | sort -rh || echo "No Node cache found"
-          sudo du -sh ~/.npm 2>/dev/null || echo "No npm cache"
-          
-          echo ""
-          echo "--- Go ---"
-          sudo du -sh /opt/hostedtoolcache/go/* 2>/dev/null | sort -rh || echo "No Go cache found"
-          sudo du -sh ~/go/pkg 2>/dev/null || echo "No Go pkg cache"
-          sudo du -sh ~/go/cache 2>/dev/null || echo "No Go build cache"
-          
-          echo ""
-          echo "--- Rust ---"
-          sudo du -sh ~/.cargo 2>/dev/null || echo "No cargo cache"
-          sudo du -sh ~/.rustup 2>/dev/null || echo "No rustup cache"
-          
-          echo ""
-          echo "--- Java ---"
-          sudo du -sh /opt/hostedtoolcache/Java_Temurin-Hotspot_jdk/* 2>/dev/null | sort -rh || echo "No Java cache found"
-          sudo du -sh ~/.gradle 2>/dev/null || echo "No Gradle cache"
-          sudo du -sh ~/.m2 2>/dev/null || echo "No Maven cache"
-          
-          echo ""
-          echo "--- Ruby ---"
-          sudo du -sh /opt/hostedtoolcache/Ruby/* 2>/dev/null | sort -rh || echo "No Ruby cache found"
-          sudo du -sh ~/.gem 2>/dev/null || echo "No gem cache"
-          
-          echo ""
-          echo "--- .NET ---"
-          sudo du -sh /opt/hostedtoolcache/dotnet/* 2>/dev/null | sort -rh || echo "No .NET cache found"
-          sudo du -sh ~/.nuget 2>/dev/null || echo "No NuGet cache"
-          
-          echo ""
-          echo "--- CodeQL ---"
-          sudo du -sh /opt/hostedtoolcache/CodeQL/* 2>/dev/null | sort -rh || echo "No CodeQL cache found"
-          
-      - name: Scan System Caches and Temp
-        run: |
-          echo "=========================================="
-          echo "SYSTEM CACHES & TEMP DIRECTORIES"
-          echo "=========================================="
-          
-          echo "--- /var ---"
-          sudo du -sh /var/* 2>/dev/null | sort -rh | head -20
-          
-          echo ""
-          echo "--- /usr ---"
-          sudo du -sh /usr/* 2>/dev/null | sort -rh | head -15
-          
-          echo ""
-          echo "--- Temp directories ---"
-          sudo du -sh /tmp 2>/dev/null || echo "/tmp not accessible"
-          sudo du -sh /var/tmp 2>/dev/null || echo "/var/tmp not accessible"
-          
-          echo ""
-          echo "--- APT cache ---"
-          sudo du -sh /var/cache/apt 2>/dev/null || echo "No APT cache"
-          sudo du -sh /var/lib/apt 2>/dev/null || echo "No APT lib"
-          
-          echo ""
-          echo "--- Snap packages ---"
-          sudo du -sh /snap/* 2>/dev/null | sort -rh || echo "No snap packages"
-          
-          echo ""
-          echo "--- Docker ---"
-          sudo du -sh /var/lib/docker 2>/dev/null || echo "No Docker directory"
-          
-      - name: Scan Large Files and Duplicates
-        run: |
-          echo "=========================================="
-          echo "LARGE FILES SCAN (>100MB)"
-          echo "=========================================="
-          sudo find / -type f -size +100M 2>/dev/null | head -50
-          
-          echo ""
-          echo "=========================================="
-          echo "SHARED LIBRARIES SIZE"
-          echo "=========================================="
-          sudo du -sh /usr/lib/* 2>/dev/null | sort -rh | head -15
-          
-          echo ""
-          echo "=========================================="
-          echo "LOCALE FILES SIZE"
-          echo "=========================================="
-          sudo du -sh /usr/share/locale 2>/dev/null || echo "No locale"
-          sudo du -sh /usr/share/man 2>/dev/null || echo "No man pages"
-          sudo du -sh /usr/share/doc 2>/dev/null || echo "No docs"
-          
-      - name: Scan GitHub Actions Specific
-        run: |
-          echo "=========================================="
-          echo "GITHUB ACTIONS RUNNER FILES"
-          echo "=========================================="
-          sudo du -sh /home/runner 2>/dev/null || echo "No /home/runner"
-          sudo du -sh /home/runner/work 2>/dev/null || echo "No work directory"
-          sudo du -sh /home/runner/.cache 2>/dev/null || echo "No runner cache"
-          sudo du -sh /home/runner/.local 2>/dev/null || echo "No runner local"
-          
-          echo ""
-          echo "--- Actions Runner Internal ---"
-          sudo du -sh /actions-runner 2>/dev/null || echo "No /actions-runner"
-          sudo du -sh /home/runner/runners 2>/dev/null || echo "No runners directory"
-          
-      - name: Scan Runner User Directories
-        run: |
-          echo "=========================================="
-          echo "USER HOME DIRECTORIES ANALYSIS"
-          echo "=========================================="
-          
-          echo "--- /home/runner detailed ---"
-          sudo du -sh /home/runner/.* 2>/dev/null | sort -rh | head -20
-          sudo du -sh /home/runner/* 2>/dev/null | sort -rh | head -20
-          
-          echo ""
-          echo "--- /home/packer ---"
-          sudo du -sh /home/packer 2>/dev/null || echo "No /home/packer"
-          sudo du -sh /home/packer/.* 2>/dev/null | sort -rh | head -15
-          sudo du -sh /home/packer/* 2>/dev/null | sort -rh | head -15
-          
-          echo ""
-          echo "--- /home/linuxbrew ---"
-          sudo du -sh /home/linuxbrew 2>/dev/null || echo "No /home/linuxbrew"
-          sudo du -sh /home/linuxbrew/.linuxbrew 2>/dev/null || echo "No linuxbrew"
-          
-          echo ""
-          echo "--- /root ---"
-          sudo du -sh /root 2>/dev/null || echo "No /root"
-          sudo du -sh /root/.* 2>/dev/null | sort -rh | head -15
-          sudo du -sh /root/* 2>/dev/null | sort -rh | head -15
-          
-          echo ""
-          echo "--- /etc/skel ---"
-          sudo du -sh /etc/skel 2>/dev/null || echo "No /etc/skel"
-          sudo du -sh /etc/skel/.* 2>/dev/null | sort -rh | head -15
-          
-      - name: Scan Boot and Kernel Files
-        run: |
-          echo "=========================================="
-          echo "BOOT & KERNEL FILES ANALYSIS"
-          echo "=========================================="
-          
-          echo "--- Installed kernels ---"
-          dpkg --list | grep -E 'linux-image|linux-headers' | head -20
-          
-          echo ""
-          echo "--- Kernel modules ---"
-          sudo du -sh /lib/modules/* 2>/dev/null | sort -rh
-          
-          echo ""
-          echo "--- Old kernel cleanup candidates ---"
-          CURRENT_KERNEL=$(uname -r)
-          echo "Current running kernel: $CURRENT_KERNEL"
-          echo ""
-          echo "Old kernels that can be removed:"
-          for k in /boot/vmlinuz-*; do
-            if [[ ! "$k" == *"$CURRENT_KERNEL"* ]]; then
-              echo "  - $(basename $k)"
+          echo "=== LLVM versions ==="
+          for llvm in /usr/lib/llvm-*; do
+            if [ -d "$llvm" ]; then
+              echo "$(basename $llvm): $(sudo du -sh "$llvm" 2>/dev/null | cut -f1)"
             fi
           done
           
           echo ""
-          echo "--- Grub configuration ---"
-          sudo du -sh /boot/grub 2>/dev/null || echo "No grub directory"
+          echo "=== Google Cloud SDK ==="
+          if [ -d "/usr/lib/google-cloud-sdk" ]; then
+            sudo du -sh /usr/lib/google-cloud-sdk/* 2>/dev/null | sort -rh | head -15
+          fi
           
+          echo ""
+          echo "=== .NET runtime ==="
+          if [ -d "/usr/lib/dotnet" ]; then
+            sudo du -sh /usr/lib/dotnet/* 2>/dev/null | sort -rh
+          fi
+          
+          echo ""
+          echo "=== Firefox ==="
+          if [ -d "/usr/lib/firefox" ]; then
+            sudo du -sh /usr/lib/firefox/* 2>/dev/null | sort -rh | head -10
+          fi
+          
+          echo ""
+          echo "=== Python ==="
+          sudo du -sh /usr/lib/python* 2>/dev/null | sort -rh
+          
+          echo ""
+          echo "=== GCC ==="
+          if [ -d "/usr/lib/gcc" ]; then
+            sudo du -sh /usr/lib/gcc/* 2>/dev/null | sort -rh
+          fi
+          
+          echo ""
+          echo "=== PostgreSQL ==="
+          if [ -d "/usr/lib/postgresql" ]; then
+            sudo du -sh /usr/lib/postgresql/* 2>/dev/null | sort -rh
+          fi
+          
+          echo ""
+          echo "=== Ruby ==="
+          if [ -d "/usr/lib/ruby" ]; then
+            sudo du -sh /usr/lib/ruby/* 2>/dev/null | sort -rh
+          fi
+
+      - name: Deep Scan /usr/share
+        run: |
+          echo "=========================================="
+          echo "DEEP SCAN: /usr/share DIRECTORY"
+          echo "=========================================="
+          
+          echo "=== Largest /usr/share directories ==="
+          sudo du -sh /usr/share/* 2>/dev/null | sort -rh | head -30
+          
+          echo ""
+          echo "=== Documentation (/usr/share/doc) ==="
+          sudo du -sh /usr/share/doc 2>/dev/null || echo "No doc directory"
+          echo "Largest doc packages:"
+          sudo du -sh /usr/share/doc/* 2>/dev/null | sort -rh | head -20
+          
+          echo ""
+          echo "=== Man pages ==="
+          sudo du -sh /usr/share/man 2>/dev/null || echo "No man pages"
+          
+          echo ""
+          echo "=== Locales ==="
+          sudo du -sh /usr/share/locale 2>/dev/null || echo "No locale directory"
+          echo "Largest locales:"
+          sudo du -sh /usr/share/locale/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "=== Swift toolchain ==="
+          if [ -d "/usr/share/swift" ]; then
+            sudo du -sh /usr/share/swift/* 2>/dev/null | sort -rh | head -15
+          fi
+          
+          echo ""
+          echo "=== Fonts ==="
+          sudo du -sh /usr/share/fonts 2>/dev/null || echo "No fonts"
+          sudo du -sh /usr/share/fonts/* 2>/dev/null | sort -rh
+          
+          echo ""
+          echo "=== Icons/Themes ==="
+          sudo du -sh /usr/share/icons 2>/dev/null || echo "No icons"
+          sudo du -sh /usr/share/themes 2>/dev/null || echo "No themes"
+          
+          echo ""
+          echo "=== Applications ==="
+          sudo du -sh /usr/share/applications 2>/dev/null || echo "No applications"
+          sudo du -sh /usr/share/applications/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "=== .NET SDK ==="
+          if [ -d "/usr/share/dotnet" ]; then
+            sudo du -sh /usr/share/dotnet/* 2>/dev/null | sort -rh | head -15
+          fi
+          
+          echo ""
+          echo "=== PowerShell ==="
+          if [ -d "/usr/local/share/powershell" ]; then
+            sudo du -sh /usr/local/share/powershell/* 2>/dev/null | sort -rh
+            echo ""
+            echo "PowerShell modules:"
+            sudo du -sh /usr/local/share/powershell/Modules/* 2>/dev/null | sort -rh | head -15
+          fi
+
+      - name: Scan /usr/bin and /usr/include
+        run: |
+          echo "=========================================="
+          echo "SCAN: /usr/bin & /usr/include"
+          echo "=========================================="
+          
+          echo "=== /usr/bin size ==="
+          sudo du -sh /usr/bin 2>/dev/null
+          echo ""
+          echo "Largest binaries:"
+          sudo du -sh /usr/bin/* 2>/dev/null | sort -rh | head -30
+          
+          echo ""
+          echo "=== /usr/sbin size ==="
+          sudo du -sh /usr/sbin 2>/dev/null
+          echo "Largest sbin binaries:"
+          sudo du -sh /usr/sbin/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "=== /usr/include size ==="
+          sudo du -sh /usr/include 2>/dev/null
+          echo "Largest include directories:"
+          sudo du -sh /usr/include/* 2>/dev/null | sort -rh | head -15
+
+      - name: Analyze Build Tool Requirements
+        run: |
+          echo "=========================================="
+          echo "BUILD TOOL REQUIREMENTS ANALYSIS"
+          echo "=========================================="
+          
+          echo "=== Tools commonly needed for builds ==="
+          echo ""
+          echo "--- Compilers ---"
+          which gcc g++ clang make cmake 2>/dev/null || true
+          dpkg -l | grep -E 'build-essential|gcc|g\+\+|clang|make|cmake' | head -10
+          
+          echo ""
+          echo "--- Version Control ---"
+          which git svn 2>/dev/null || true
+          sudo du -sh /usr/bin/git /usr/bin/svn 2>/dev/null || true
+          
+          echo ""
+          echo "--- Package Managers ---"
+          which npm yarn pnpm pip pip3 2>/dev/null || true
+          which apt apt-get dpkg 2>/dev/null || true
+          
+          echo ""
+          echo "--- Container Tools ---"
+          which docker podman 2>/dev/null || true
+          sudo du -sh /usr/bin/docker /usr/bin/podman 2>/dev/null || true
+          
+          echo ""
+          echo "--- Archive Tools ---"
+          which tar unzip gzip xz 7z 2>/dev/null || true
+          
+          echo ""
+          echo "=== Potentially removable for build-only runners ==="
+          echo ""
+          echo "--- Browsers ---"
+          which firefox chromium-browser google-chrome 2>/dev/null || true
+          sudo du -sh /usr/bin/firefox /usr/bin/chromium-browser 2>/dev/null || true
+          
+          echo ""
+          echo "--- Office/Productivity ---"
+          dpkg -l | grep -E 'libreoffice|thunderbird|evince' | head -5 || echo "None found"
+          
+          echo ""
+          echo "--- Media ---"
+          dpkg -l | grep -E 'vlc|gimp|inkscape' | head -5 || echo "None found"
+
+      - name: Cleanup Recommendations
+        run: |
+          echo "=========================================="
+          echo "CLEANUP RECOMMENDATIONS"
+          echo "=========================================="
+          
+          echo ""
+          echo "=== SAFE TO REMOVE (for most builds) ==="
+          echo ""
+          echo "[HIGH IMPACT - Large space savings]"
+          echo "Items that can be safely removed for typical CI/CD builds:"
+          echo ""
+          
+          # Calculate sizes
+          CODEQL_SIZE=$(sudo du -sm /opt/hostedtoolcache/CodeQL 2>/dev/null | cut -f1 || echo 0)
+          SWIFT_SIZE=$(sudo du -sm /usr/share/swift 2>/dev/null | cut -f1 || echo 0)
+          GHCUP_SIZE=$(sudo du -sm /usr/local/.ghcup 2>/dev/null | cut -f1 || echo 0)
+          JULIA_SIZE=$(sudo du -sm /usr/local/julia* 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo 0)
+          FIREFOX_SIZE=$(sudo du -sm /usr/lib/firefox 2>/dev/null | cut -f1 || echo 0)
+          CHROMIUM_SIZE=$(sudo du -sm /usr/local/share/chromium 2>/dev/null | cut -f1 || echo 0)
+          LLVM_TOTAL=0
+          for llvm in /usr/lib/llvm-*; do
+            if [ -d "$llvm" ]; then
+              size=$(sudo du -sm "$llvm" 2>/dev/null | cut -f1 || echo 0)
+              LLVM_TOTAL=$((LLVM_TOTAL + size))
+            fi
+          done
+          ANDROID_SIZE=$(sudo du -sm /usr/local/lib/android 2>/dev/null | cut -f1 || echo 0)
+          DOCKER_SIZE=$(sudo du -sm /var/lib/docker 2>/dev/null | cut -f1 || echo 0)
+          RUSTUP_SIZE=$(sudo du -sm /home/runner/.rustup 2>/dev/null | cut -f1 || echo 0)
+          SKEL_SIZE=$(sudo du -sm /etc/skel/.rustup /etc/skel/.cargo /etc/skel/.dotnet 2>/dev/null | awk '{sum+=$1} END {print sum}' || echo 0)
+          PACKER_SIZE=$(sudo du -sm /home/packer 2>/dev/null | cut -f1 || echo 0)
+          LINUXBREW_SIZE=$(sudo du -sm /home/linuxbrew 2>/dev/null | cut -f1 || echo 0)
+          MAN_SIZE=$(sudo du -sm /usr/share/man 2>/dev/null | cut -f1 || echo 0)
+          DOC_SIZE=$(sudo du -sm /usr/share/doc 2>/dev/null | cut -f1 || echo 0)
+          LOCALE_SIZE=$(sudo du -sm /usr/share/locale 2>/dev/null | cut -f1 || echo 0)
+          PWSH_SIZE=$(sudo du -sm /usr/local/share/powershell 2>/dev/null | cut -f1 || echo 0)
+          GCS_SIZE=$(sudo du -sm /usr/lib/google-cloud-sdk 2>/dev/null | cut -f1 || echo 0)
+          MINIKUBE_SIZE=$(sudo du -sm /usr/local/bin/minikube 2>/dev/null | cut -f1 || echo 0)
+          
+          echo "CodeQL (security scanning):        ${CODEQL_SIZE}MB"
+          echo "Swift toolchain:                   ${SWIFT_SIZE}MB"
+          echo "Haskell/GHC:                       ${GHCUP_SIZE}MB"
+          echo "Julia:                             ${JULIA_SIZE}MB"
+          echo "Firefox:                           ${FIREFOX_SIZE}MB"
+          echo "Chromium:                          ${CHROMIUM_SIZE}MB"
+          echo "LLVM versions (extra):             ${LLVM_TOTAL}MB"
+          echo "Android SDK:                       ${ANDROID_SIZE}MB"
+          echo "Docker images:                     ${DOCKER_SIZE}MB"
+          echo "Rust toolchains:                   ${RUSTUP_SIZE}MB"
+          echo "/etc/skel duplicates:              ${SKEL_SIZE}MB"
+          echo "/home/packer:                      ${PACKER_SIZE}MB"
+          echo "Linuxbrew:                         ${LINUXBREW_SIZE}MB"
+          echo "Man pages:                         ${MAN_SIZE}MB"
+          echo "Documentation:                     ${DOC_SIZE}MB"
+          echo "Locales:                           ${LOCALE_SIZE}MB"
+          echo "PowerShell modules:                ${PWSH_SIZE}MB"
+          echo "Google Cloud SDK:                  ${GCS_SIZE}MB"
+          echo "Minikube:                          ${MINIKUBE_SIZE}MB"
+          
+          TOTAL=$((CODEQL_SIZE + SWIFT_SIZE + GHCUP_SIZE + JULIA_SIZE + FIREFOX_SIZE + CHROMIUM_SIZE + LLVM_TOTAL + ANDROID_SIZE + DOCKER_SIZE + RUSTUP_SIZE + SKEL_SIZE + PACKER_SIZE + LINUXBREW_SIZE + MAN_SIZE + DOC_SIZE + LOCALE_SIZE + PWSH_SIZE + GCS_SIZE + MINIKUBE_SIZE))
+          
+          echo ""
+          echo "═══════════════════════════════════════"
+          echo "TOTAL POTENTIAL SAVINGS: ${TOTAL}MB"
+          echo "═══════════════════════════════════════"
+          
+          echo ""
+          echo "=== KEEP FOR STANDARD BUILDS ==="
+          echo ""
+          echo "[ESSENTIAL - Do not remove]"
+          echo "- GCC/G++ (C/C++ compilation)"
+          echo "- Make/CMake (build systems)"
+          echo "- Git (version control)"
+          echo "- Python 3 (many build scripts)"
+          echo "- Node.js (if building JS/TS projects)"
+          echo "- npm/yarn/pnpm (package managers)"
+          echo "- pip (Python package manager)"
+          echo "- tar/unzip/gzip (archive tools)"
+          echo "- curl/wget (downloads)"
+          
+          echo ""
+          echo "[CONDITIONAL - Keep based on project type]"
+          echo "- Go toolchain (if building Go)"
+          echo "- Java JDK (if building Java/Kotlin)"
+          echo "- .NET SDK (if building .NET)"
+          echo "- Ruby (if building Ruby)"
+          echo "- Docker (if building containers)"
+
       - name: Generate Summary Report
         run: |
           echo "=========================================="
           echo "DISK SPACE SCAN SUMMARY"
           echo "=========================================="
           
-          # Calculate totals for each category
+          df -h /
           echo ""
-          echo "=== TOTAL SIZES BY CATEGORY ==="
+          
+          echo "=== /usr SIZE BREAKDOWN ==="
+          sudo du -sh /usr/* 2>/dev/null | sort -rh | head -10
           
           echo ""
-          echo "[TOOLCHAINS]"
-          TOOLCHAIN_TOTAL=0
-          for path in /opt/hostedtoolcache/*; do
-            if [ -d "$path" ]; then
-              size=$(sudo du -sm "$path" 2>/dev/null | cut -f1)
-              echo "$path: ${size}MB"
-              TOOLCHAIN_TOTAL=$((TOOLCHAIN_TOTAL + size))
-            fi
-          done
-          echo "TOTAL TOOLCHAINS: ${TOOLCHAIN_TOTAL}MB"
+          echo "=== /opt SIZE BREAKDOWN ==="
+          sudo du -sh /opt/* 2>/dev/null | sort -rh
           
           echo ""
-          echo "[LANGUAGE CACHES]"
-          for cache in ~/.cargo ~/.rustup ~/.npm ~/.cache/pip ~/.gradle ~/.m2 ~/.nuget ~/.gem ~/go/pkg ~/go/cache; do
-            if [ -d "$cache" ]; then
-              size=$(sudo du -sm "$cache" 2>/dev/null | cut -f1)
-              echo "$cache: ${size}MB"
-            fi
-          done
-          
-          echo ""
-          echo "[SYSTEM CACHES]"
-          for sys in /var/cache/apt /var/lib/apt /var/lib/docker /snap; do
-            if [ -d "$sys" ]; then
-              size=$(sudo du -sm "$sys" 2>/dev/null | cut -f1)
-              echo "$sys: ${size}MB"
-            fi
-          done
-          
-          echo ""
-          echo "[NON-ROOT PARTITIONS]"
-          echo "=== Boot Partitions ==="
-          df -h /boot /boot/efi 2>/dev/null || echo "No separate boot partitions"
-          
-          echo ""
-          echo "=== tmpfs Usage ==="
-          df -h /dev/shm /run /run/lock 2>/dev/null
-          
-          echo ""
-          echo "[USER HOMES]"
-          for home in /home/* /root; do
-            if [ -d "$home" ]; then
-              size=$(sudo du -sm "$home" 2>/dev/null | cut -f1)
-              echo "$home: ${size}MB"
-            fi
-          done
-          
-          echo ""
-          echo "=== FINAL DISK STATUS (ALL FILESYSTEMS) ==="
-          df -h
+          echo "=== KEY CLEANUP TARGETS ==="
+          sudo du -sh /opt/hostedtoolcache/CodeQL /usr/share/swift /usr/local/.ghcup /usr/lib/firefox /usr/local/lib/android /var/lib/docker 2>/dev/null | sort -rh
           
       - name: Create Scan Results Artifact
         run: |
           mkdir -p scan-results
           {
-            echo "# Disk Space Scan Results"
+            echo "# Disk Space Deep Scan Results"
             echo ""
             echo "## System Information"
             echo "- Runner OS: ${{ runner.os }}"
@@ -366,44 +496,31 @@ jobs:
             echo "- Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
             echo "- Current Kernel: $(uname -r)"
             echo ""
-            echo "## All Filesystems"
+            echo "## Disk Usage Summary"
             df -h
             echo ""
-            echo "## Non-Root Partitions"
-            echo "### Boot Partitions"
-            df -h /boot /boot/efi 2>/dev/null || echo "No separate boot partitions"
+            echo "## /usr Breakdown"
+            sudo du -sh /usr/* 2>/dev/null | sort -rh
             echo ""
-            echo "### tmpfs"
-            df -h /dev/shm /run /run/lock 2>/dev/null
+            echo "## /opt Breakdown"
+            sudo du -sh /opt/* 2>/dev/null | sort -rh
             echo ""
-            echo "## /boot Contents"
-            sudo du -sh /boot/* 2>/dev/null | sort -rh | head -20
+            echo "## /usr/local Breakdown"
+            sudo du -sh /usr/local/* 2>/dev/null | sort -rh
             echo ""
-            echo "## /boot/efi Contents"
-            sudo du -sh /boot/efi/* 2>/dev/null | sort -rh | head -20
+            echo "## /usr/lib Breakdown"
+            sudo du -sh /usr/lib/* 2>/dev/null | sort -rh | head -25
             echo ""
-            echo "## User Home Directories"
-            sudo du -sh /home/* /root 2>/dev/null | sort -rh
+            echo "## /usr/share Breakdown"
+            sudo du -sh /usr/share/* 2>/dev/null | sort -rh | head -25
             echo ""
-            echo "## Toolchains Sizes"
+            echo "## Toolchain Sizes"
             sudo du -sh /opt/hostedtoolcache/* 2>/dev/null | sort -rh
-            echo ""
-            echo "## Largest Directories"
-            sudo du -sh /* 2>/dev/null | sort -rh | head -20
-            echo ""
-            echo "## Language Caches"
-            sudo du -sh ~/.cargo ~/.rustup ~/.npm ~/.cache/pip ~/.gradle ~/.m2 ~/.nuget ~/.gem ~/go/pkg 2>/dev/null || true
-            echo ""
-            echo "## System Caches"
-            sudo du -sh /var/cache/apt /var/lib/apt /snap /var/lib/docker 2>/dev/null || true
-            echo ""
-            echo "## Kernel Modules"
-            sudo du -sh /lib/modules/* 2>/dev/null | sort -rh
-          } > scan-results/scan-report.md
+          } > scan-results/deep-scan-report.md
           
       - name: Upload Scan Results
         uses: actions/upload-artifact@v4
         with:
-          name: disk-scan-results
+          name: disk-deep-scan-results
           path: scan-results/
           retention-days: 1
