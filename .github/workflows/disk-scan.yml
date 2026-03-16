@@ -14,7 +14,7 @@ jobs:
       - name: Initial Disk Space Check
         run: |
           echo "=========================================="
-          echo "INITIAL DISK SPACE STATUS"
+          echo "INITIAL DISK SPACE STATUS (ALL FILESYSTEMS)"
           echo "=========================================="
           df -h
           echo ""
@@ -22,6 +22,94 @@ jobs:
           echo "INODE STATUS"
           echo "=========================================="
           df -i
+          echo ""
+          echo "=========================================="
+          echo "MOUNTED FILESYSTEMS"
+          echo "=========================================="
+          mount | grep -E "^/dev|^tmpfs|^efivarfs"
+          
+      - name: Scan Non-Root Partitions
+        run: |
+          echo "=========================================="
+          echo "NON-ROOT PARTITION ANALYSIS"
+          echo "=========================================="
+          
+          echo "--- /boot partition ---"
+          if mountpoint -q /boot 2>/dev/null; then
+            echo "Mounted as separate partition:"
+            df -h /boot
+            echo ""
+            echo "Contents of /boot:"
+            sudo du -sh /boot/* 2>/dev/null | sort -rh | head -20
+            echo ""
+            echo "Old kernels (potentially removable):"
+            ls -la /boot/vmlinuz-* 2>/dev/null | head -20
+            echo ""
+            echo "Initrd files:"
+            ls -lh /boot/initrd* /boot/initramfs* 2>/dev/null | head -20
+          else
+            echo "/boot is not a separate partition"
+          fi
+          
+          echo ""
+          echo "--- /boot/efi partition (EFI System Partition) ---"
+          if mountpoint -q /boot/efi 2>/dev/null; then
+            echo "Mounted as EFI System Partition:"
+            df -h /boot/efi
+            echo ""
+            echo "Contents of /boot/efi:"
+            sudo du -sh /boot/efi/* 2>/dev/null | sort -rh | head -20
+          else
+            echo "/boot/efi is not a separate partition"
+          fi
+          
+          echo ""
+          echo "--- tmpfs filesystems ---"
+          echo "/dev/shm:"
+          df -h /dev/shm
+          sudo du -sh /dev/shm/* 2>/dev/null | sort -rh | head -10 || echo "Empty or not accessible"
+          
+          echo ""
+          echo "/run:"
+          df -h /run
+          sudo du -sh /run/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "/run/lock:"
+          df -h /run/lock
+          sudo du -sh /run/lock/* 2>/dev/null | sort -rh | head -10 || echo "Empty"
+          
+      - name: Scan Memory and Runtime Filesystems
+        run: |
+          echo "=========================================="
+          echo "MEMORY & RUNTIME FILESYSTEMS"
+          echo "=========================================="
+          
+          echo "--- efivarfs (EFI variables) ---"
+          if mountpoint -q /sys/firmware/efi/efivars 2>/dev/null; then
+            df -h /sys/firmware/efi/efivars
+            echo "Size of EFI variables:"
+            sudo du -sh /sys/firmware/efi/efivars 2>/dev/null || echo "Not accessible"
+          else
+            echo "efivarfs not mounted"
+          fi
+          
+          echo ""
+          echo "--- cgroup filesystems ---"
+          mount | grep cgroup | head -5
+          echo ""
+          echo "cgroup memory usage:"
+          sudo du -sh /sys/fs/cgroup/* 2>/dev/null | sort -rh | head -10 || echo "Not accessible"
+          
+          echo ""
+          echo "--- /proc filesystem ---"
+          echo "Note: /proc is virtual, shows kernel/process info"
+          ls -la /proc | head -20
+          
+          echo ""
+          echo "--- /sys filesystem ---"
+          echo "Note: /sys is virtual, shows kernel/hardware info"
+          sudo du -sh /sys/* 2>/dev/null | sort -rh | head -10
           
       - name: Scan Root Directory Sizes
         run: |
@@ -143,6 +231,67 @@ jobs:
           sudo du -sh /actions-runner 2>/dev/null || echo "No /actions-runner"
           sudo du -sh /home/runner/runners 2>/dev/null || echo "No runners directory"
           
+      - name: Scan Runner User Directories
+        run: |
+          echo "=========================================="
+          echo "USER HOME DIRECTORIES ANALYSIS"
+          echo "=========================================="
+          
+          echo "--- /home/runner detailed ---"
+          sudo du -sh /home/runner/.* 2>/dev/null | sort -rh | head -20
+          sudo du -sh /home/runner/* 2>/dev/null | sort -rh | head -20
+          
+          echo ""
+          echo "--- /home/packer ---"
+          sudo du -sh /home/packer 2>/dev/null || echo "No /home/packer"
+          sudo du -sh /home/packer/.* 2>/dev/null | sort -rh | head -15
+          sudo du -sh /home/packer/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "--- /home/linuxbrew ---"
+          sudo du -sh /home/linuxbrew 2>/dev/null || echo "No /home/linuxbrew"
+          sudo du -sh /home/linuxbrew/.linuxbrew 2>/dev/null || echo "No linuxbrew"
+          
+          echo ""
+          echo "--- /root ---"
+          sudo du -sh /root 2>/dev/null || echo "No /root"
+          sudo du -sh /root/.* 2>/dev/null | sort -rh | head -15
+          sudo du -sh /root/* 2>/dev/null | sort -rh | head -15
+          
+          echo ""
+          echo "--- /etc/skel ---"
+          sudo du -sh /etc/skel 2>/dev/null || echo "No /etc/skel"
+          sudo du -sh /etc/skel/.* 2>/dev/null | sort -rh | head -15
+          
+      - name: Scan Boot and Kernel Files
+        run: |
+          echo "=========================================="
+          echo "BOOT & KERNEL FILES ANALYSIS"
+          echo "=========================================="
+          
+          echo "--- Installed kernels ---"
+          dpkg --list | grep -E 'linux-image|linux-headers' | head -20
+          
+          echo ""
+          echo "--- Kernel modules ---"
+          sudo du -sh /lib/modules/* 2>/dev/null | sort -rh
+          
+          echo ""
+          echo "--- Old kernel cleanup candidates ---"
+          CURRENT_KERNEL=$(uname -r)
+          echo "Current running kernel: $CURRENT_KERNEL"
+          echo ""
+          echo "Old kernels that can be removed:"
+          for k in /boot/vmlinuz-*; do
+            if [[ ! "$k" == *"$CURRENT_KERNEL"* ]]; then
+              echo "  - $(basename $k)"
+            fi
+          done
+          
+          echo ""
+          echo "--- Grub configuration ---"
+          sudo du -sh /boot/grub 2>/dev/null || echo "No grub directory"
+          
       - name: Generate Summary Report
         run: |
           echo "=========================================="
@@ -184,8 +333,26 @@ jobs:
           done
           
           echo ""
-          echo "=== FINAL DISK STATUS ==="
-          df -h /
+          echo "[NON-ROOT PARTITIONS]"
+          echo "=== Boot Partitions ==="
+          df -h /boot /boot/efi 2>/dev/null || echo "No separate boot partitions"
+          
+          echo ""
+          echo "=== tmpfs Usage ==="
+          df -h /dev/shm /run /run/lock 2>/dev/null
+          
+          echo ""
+          echo "[USER HOMES]"
+          for home in /home/* /root; do
+            if [ -d "$home" ]; then
+              size=$(sudo du -sm "$home" 2>/dev/null | cut -f1)
+              echo "$home: ${size}MB"
+            fi
+          done
+          
+          echo ""
+          echo "=== FINAL DISK STATUS (ALL FILESYSTEMS) ==="
+          df -h
           
       - name: Create Scan Results Artifact
         run: |
@@ -197,9 +364,26 @@ jobs:
             echo "- Runner OS: ${{ runner.os }}"
             echo "- Architecture: ${{ runner.arch }}"
             echo "- Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo "- Current Kernel: $(uname -r)"
             echo ""
-            echo "## Disk Usage Summary"
+            echo "## All Filesystems"
             df -h
+            echo ""
+            echo "## Non-Root Partitions"
+            echo "### Boot Partitions"
+            df -h /boot /boot/efi 2>/dev/null || echo "No separate boot partitions"
+            echo ""
+            echo "### tmpfs"
+            df -h /dev/shm /run /run/lock 2>/dev/null
+            echo ""
+            echo "## /boot Contents"
+            sudo du -sh /boot/* 2>/dev/null | sort -rh | head -20
+            echo ""
+            echo "## /boot/efi Contents"
+            sudo du -sh /boot/efi/* 2>/dev/null | sort -rh | head -20
+            echo ""
+            echo "## User Home Directories"
+            sudo du -sh /home/* /root 2>/dev/null | sort -rh
             echo ""
             echo "## Toolchains Sizes"
             sudo du -sh /opt/hostedtoolcache/* 2>/dev/null | sort -rh
@@ -212,6 +396,9 @@ jobs:
             echo ""
             echo "## System Caches"
             sudo du -sh /var/cache/apt /var/lib/apt /snap /var/lib/docker 2>/dev/null || true
+            echo ""
+            echo "## Kernel Modules"
+            sudo du -sh /lib/modules/* 2>/dev/null | sort -rh
           } > scan-results/scan-report.md
           
       - name: Upload Scan Results
