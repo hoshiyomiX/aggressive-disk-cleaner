@@ -1,0 +1,263 @@
+name: Aggressive Disk Cleaner
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_android:
+        description: 'Skip Android SDK cleanup (keep for mobile builds)'
+        required: false
+        default: 'false'
+        type: boolean
+      skip_docker:
+        description: 'Skip Docker cleanup (keep for container builds)'
+        required: false
+        default: 'false'
+        type: boolean
+      keep_node:
+        description: 'Keep Node.js toolchains'
+        required: false
+        default: 'true'
+        type: boolean
+      keep_python:
+        description: 'Keep Python toolchains'
+        required: false
+        default: 'true'
+        type: boolean
+      keep_go:
+        description: 'Keep Go toolchains'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  clean-disk:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Check Initial Disk Space
+        run: |
+          echo "=========================================="
+          echo "INITIAL DISK SPACE"
+          echo "=========================================="
+          df -h /
+          echo ""
+          echo "Available: $(df -h / | awk 'NR==2 {print $4}')"
+          
+      - name: Aggressive Disk Cleanup
+        run: |
+          echo "=========================================="
+          echo "STARTING AGGRESSIVE CLEANUP"
+          echo "=========================================="
+          
+          # Fast parallel cleanup using subshells
+          (
+            echo "[1/10] Removing CodeQL..."
+            sudo rm -rf /opt/hostedtoolcache/CodeQL 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[2/10] Removing Rust toolchains (all users)..."
+            sudo rm -rf /home/runner/.rustup 2>/dev/null || true
+            sudo rm -rf /home/runner/.cargo 2>/dev/null || true
+            sudo rm -rf /home/packer/.rustup 2>/dev/null || true
+            sudo rm -rf /home/packer/.cargo 2>/dev/null || true
+            sudo rm -rf /etc/skel/.rustup 2>/dev/null || true
+            sudo rm -rf /etc/skel/.cargo 2>/dev/null || true
+            sudo rm -rf /root/.rustup 2>/dev/null || true
+            sudo rm -rf /root/.cargo 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[3/10] Removing PyPy..."
+            sudo rm -rf /opt/hostedtoolcache/PyPy 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[4/10] Removing Ruby toolchains..."
+            sudo rm -rf /opt/hostedtoolcache/Ruby 2>/dev/null || true
+            sudo rm -rf /home/runner/.gem 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[5/10] Removing Java caches..."
+            sudo rm -rf /home/runner/.gradle 2>/dev/null || true
+            sudo rm -rf /home/runner/.m2 2>/dev/null || true
+            sudo rm -rf /home/packer/.gradle 2>/dev/null || true
+            sudo rm -rf /home/packer/.m2 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[6/10] Removing .NET caches..."
+            sudo rm -rf /home/runner/.nuget 2>/dev/null || true
+            sudo rm -rf /home/packer/.nuget 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[7/10] Cleaning APT cache..."
+            sudo apt-get clean 2>/dev/null || true
+            sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true
+            sudo rm -rf /var/cache/apt/* 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[8/10] Removing documentation and man pages..."
+            sudo rm -rf /usr/share/man/* 2>/dev/null || true
+            sudo rm -rf /usr/share/doc/* 2>/dev/null || true
+            sudo rm -rf /usr/share/locale/* 2>/dev/null || true
+          ) &
+          
+          (
+            echo "[9/10] Removing Linuxbrew git objects..."
+            sudo rm -rf /home/linuxbrew/.linuxbrew/Homebrew/.git 2>/dev/null || true
+          ) &
+          
+          wait
+          echo "First pass complete!"
+          
+      - name: Conditional Cleanups
+        run: |
+          # Android SDK cleanup
+          if [ "${{ inputs.skip_android }}" != "true" ]; then
+            echo "[Android] Removing Android SDK/NDK..."
+            sudo rm -rf /usr/local/lib/android/sdk/ndk 2>/dev/null || true
+            sudo rm -rf /usr/local/lib/android/sdk/build-tools 2>/dev/null || true
+            sudo rm -rf /usr/local/lib/android/sdk/cmdline-tools 2>/dev/null || true
+            sudo rm -rf /usr/local/lib/android/sdk/platforms 2>/dev/null || true
+            sudo rm -rf /usr/local/lib/android/sdk/patcher 2>/dev/null || true
+          fi
+          
+          # Docker cleanup
+          if [ "${{ inputs.skip_docker }}" != "true" ]; then
+            echo "[Docker] Removing Docker images and containers..."
+            sudo docker system prune -af --volumes 2>/dev/null || true
+            sudo rm -rf /var/lib/docker/* 2>/dev/null || true
+          fi
+          
+      - name: Optional Toolchain Cleanup
+        run: |
+          # Node.js toolchains
+          if [ "${{ inputs.keep_node }}" != "true" ]; then
+            echo "[Node.js] Removing Node.js toolchains..."
+            sudo rm -rf /opt/hostedtoolcache/node 2>/dev/null || true
+            sudo rm -rf /home/runner/.npm 2>/dev/null || true
+          fi
+          
+          # Python toolchains
+          if [ "${{ inputs.keep_python }}" != "true" ]; then
+            echo "[Python] Removing Python toolchains..."
+            sudo rm -rf /opt/hostedtoolcache/Python 2>/dev/null || true
+            sudo rm -rf /home/runner/.cache/pip 2>/dev/null || true
+          fi
+          
+          # Go toolchains
+          if [ "${{ inputs.keep_go }}" != "true" ]; then
+            echo "[Go] Removing Go toolchains..."
+            sudo rm -rf /opt/hostedtoolcache/go 2>/dev/null || true
+            sudo rm -rf /home/runner/go 2>/dev/null || true
+          fi
+          
+      - name: Deep Cleanup - Large Tools
+        run: |
+          echo "=========================================="
+          echo "DEEP CLEANUP - Large Development Tools"
+          echo "=========================================="
+          
+          # Remove unused large tools that are rarely needed for typical builds
+          (
+            echo "Removing Swift..."
+            sudo rm -rf /usr/share/swift 2>/dev/null || true
+          ) &
+          
+          (
+            echo "Removing Haskell/GHC..."
+            sudo rm -rf /usr/local/.ghcup 2>/dev/null || true
+            sudo rm -rf /root/.ghcup 2>/dev/null || true
+          ) &
+          
+          (
+            echo "Removing Julia..."
+            sudo rm -rf /usr/local/julia* 2>/dev/null || true
+          ) &
+          
+          (
+            echo "Removing minikube..."
+            sudo rm -rf /usr/local/bin/minikube 2>/dev/null || true
+          ) &
+          
+          (
+            echo "Removing Firefox..."
+            sudo rm -rf /usr/lib/firefox 2>/dev/null || true
+            sudo rm -rf /usr/share/firefox 2>/dev/null || true
+          ) &
+          
+          (
+            echo "Removing Chromium..."
+            sudo rm -rf /usr/local/share/chromium 2>/dev/null || true
+          ) &
+          
+          (
+            echo "Removing extra LLVM versions..."
+            sudo rm -rf /usr/lib/llvm-16 2>/dev/null || true
+            sudo rm -rf /usr/lib/llvm-17 2>/dev/null || true
+            sudo rm -rf /usr/lib/llvm-18 2>/dev/null || true
+          ) &
+          
+          wait
+          echo "Deep cleanup complete!"
+          
+      - name: Final Sweep - Caches and Temp
+        run: |
+          echo "=========================================="
+          echo "FINAL SWEEP - Caches and Temporary Files"
+          echo "=========================================="
+          
+          # Clear all user caches
+          sudo rm -rf /home/runner/.cache/* 2>/dev/null || true
+          sudo rm -rf /home/packer/.cache/* 2>/dev/null || true
+          sudo rm -rf /root/.cache/* 2>/dev/null || true
+          
+          # Clear temp directories
+          sudo rm -rf /tmp/* 2>/dev/null || true
+          sudo rm -rf /var/tmp/* 2>/dev/null || true
+          
+          # Clear npm/yarn/pnpm caches
+          sudo rm -rf /home/runner/.npm 2>/dev/null || true
+          sudo rm -rf /home/runner/.yarn 2>/dev/null || true
+          sudo rm -rf /home/packer/.npm 2>/dev/null || true
+          
+          # Clear pip cache
+          sudo rm -rf /home/runner/.cache/pip 2>/dev/null || true
+          sudo rm -rf /root/.cache/pip 2>/dev/null || true
+          
+          # Go cache
+          sudo rm -rf /home/runner/go/pkg 2>/dev/null || true
+          sudo rm -rf /home/runner/go/cache 2>/dev/null || true
+          
+          echo "Final sweep complete!"
+          
+      - name: Verify Disk Space
+        run: |
+          echo "=========================================="
+          echo "DISK SPACE AFTER CLEANUP"
+          echo "=========================================="
+          df -h /
+          echo ""
+          
+          # Calculate freed space
+          INITIAL_USED="54G"
+          CURRENT_USED=$(df -h / | awk 'NR==2 {print $3}')
+          CURRENT_AVAIL=$(df -h / | awk 'NR==2 {print $4}')
+          
+          echo "=========================================="
+          echo "SUMMARY"
+          echo "=========================================="
+          echo "Current Used: $CURRENT_USED"
+          echo "Current Available: $CURRENT_AVAIL"
+          echo ""
+          
+          # Show what's left in key directories
+          echo "Remaining in /opt: $(sudo du -sh /opt 2>/dev/null | cut -f1)"
+          echo "Remaining in /usr/local: $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
+          echo "Remaining in /home: $(sudo du -sh /home 2>/dev/null | cut -f1)"
