@@ -1,5 +1,5 @@
 name: 'Aggressive Disk Cleaner'
-description: 'Fast and aggressive disk space cleanup for GitHub Actions runners'
+description: 'Fast and aggressive disk space cleanup for GitHub Actions runners - frees up to 30GB+'
 author: 'hoshiyomiX'
 
 branding:
@@ -7,414 +7,375 @@ branding:
   color: 'red'
 
 inputs:
-  skip_android:
-    description: 'Skip Android SDK cleanup (keep for mobile builds)'
-    required: false
-    default: 'false'
-  skip_docker:
-    description: 'Skip Docker cleanup (keep for container builds)'
-    required: false
-    default: 'false'
+  # Essential build tools (keep options)
   keep_node:
-    description: 'Keep Node.js toolchains'
+    description: 'Keep Node.js toolchains (~570MB)'
     required: false
     default: 'true'
   keep_python:
-    description: 'Keep Python toolchains'
+    description: 'Keep Python toolchains (~1.7GB)'
     required: false
     default: 'true'
   keep_go:
-    description: 'Keep Go toolchains'
+    description: 'Keep Go toolchains (~1.1GB)'
     required: false
     default: 'true'
-  deep_clean:
-    description: 'Perform deep clean (remove Swift, Haskell, Julia, etc.)'
+  keep_java:
+    description: 'Keep Java JDKs (~1.5GB)'
     required: false
     default: 'true'
-  clean_packer_home:
-    description: 'Clean /home/packer (packer user directory)'
+  keep_dotnet:
+    description: 'Keep .NET SDK (~4.2GB)'
+    required: false
+    default: 'true'
+  keep_ruby:
+    description: 'Keep Ruby toolchains (~313MB)'
+    required: false
+    default: 'false'
+    
+  # Large optional cleanups (enable options)
+  clean_android:
+    description: 'Clean Android SDK/NDK (~10GB)'
+    required: false
+    default: 'true'
+  clean_docker:
+    description: 'Clean Docker images/volumes (~2GB)'
+    required: false
+    default: 'true'
+  clean_codeql:
+    description: 'Clean CodeQL (~1.7GB)'
+    required: false
+    default: 'true'
+  clean_ghc_haskell:
+    description: 'Clean Haskell/GHC (~3.7GB)'
+    required: false
+    default: 'true'
+  clean_swift:
+    description: 'Clean Swift toolchain (~3.2GB)'
+    required: false
+    default: 'true'
+  clean_powershell:
+    description: 'Clean PowerShell modules (~1.3GB)'
+    required: false
+    default: 'true'
+  clean_julia:
+    description: 'Clean Julia (~1GB)'
+    required: false
+    default: 'true'
+  clean_google_cloud:
+    description: 'Clean Google Cloud SDK (~1GB)'
+    required: false
+    default: 'true'
+  clean_azure_cli:
+    description: 'Clean Azure CLI (~1.2GB)'
+    required: false
+    default: 'true'
+  clean_miniconda:
+    description: 'Clean Miniconda (~860MB)'
+    required: false
+    default: 'true'
+  clean_llvm_extra:
+    description: 'Clean extra LLVM versions (~1.9GB)'
+    required: false
+    default: 'true'
+  clean_browsers:
+    description: 'Clean Firefox/Chromium (~920MB)'
+    required: false
+    default: 'true'
+    
+  # Additional cleanups
+  clean_rust:
+    description: 'Clean Rust toolchains (~600MB)'
+    required: false
+    default: 'true'
+  clean_packer:
+    description: 'Clean /home/packer (~680MB)'
     required: false
     default: 'true'
   clean_skel:
-    description: 'Clean /etc/skel (skeleton directory with duplicate toolchains)'
+    description: 'Clean /etc/skel duplicates (~680MB)'
     required: false
     default: 'true'
   clean_linuxbrew:
-    description: 'Clean /home/linuxbrew (Homebrew installation)'
+    description: 'Clean Homebrew (~188MB)'
+    required: false
+    default: 'true'
+  clean_vcpkg:
+    description: 'Clean vcpkg (~189MB)'
+    required: false
+    default: 'true'
+  clean_gradle_maven:
+    description: 'Clean Gradle/Maven caches'
+    required: false
+    default: 'true'
+  clean_docs:
+    description: 'Clean man pages/docs/locales (~234MB)'
     required: false
     default: 'true'
   clean_swap:
-    description: 'Disable and remove swap file (frees ~3GB)'
+    description: 'Disable swap file (~3GB)'
     required: false
     default: 'false'
 
 runs:
   using: 'composite'
   steps:
-    - name: Check Initial Disk Space (BEFORE)
+    - name: Check Initial Disk Space
       shell: bash
       run: |
         echo "=========================================="
         echo "DISK SPACE USAGE (BEFORE CLEANUP)"
         echo "=========================================="
         df -h /
-        echo ""
         
-        # Capture initial values
-        BEFORE_TOTAL=$(df --output=size / | awk 'NR==2' | tr -d ' ')
         BEFORE_USED=$(df --output=used / | awk 'NR==2' | tr -d ' ')
         BEFORE_AVAIL=$(df --output=avail / | awk 'NR==2' | tr -d ' ')
-        BEFORE_PERCENT=$(df --output=pcent / | awk 'NR==2' | tr -d ' %')
-        
-        # Convert to GB for readability
-        BEFORE_TOTAL_GB=$((BEFORE_TOTAL / 1024 / 1024))
         BEFORE_USED_GB=$((BEFORE_USED / 1024 / 1024))
         BEFORE_AVAIL_GB=$((BEFORE_AVAIL / 1024 / 1024))
         
         echo "BEFORE_USED_GB=${BEFORE_USED_GB}" >> $GITHUB_ENV
         echo "BEFORE_AVAIL_GB=${BEFORE_AVAIL_GB}" >> $GITHUB_ENV
         
-        echo "┌─────────────────────────────────────────┐"
-        echo "│         DISK USAGE (BEFORE)             │"
-        echo "├─────────────────────────────────────────┤"
-        echo "│ Total Disk:     ${BEFORE_TOTAL_GB}GB                     │"
-        echo "│ Used:           ${BEFORE_USED_GB}GB (${BEFORE_PERCENT}%)                │"
-        echo "│ Available:      ${BEFORE_AVAIL_GB}GB                     │"
-        echo "└─────────────────────────────────────────┘"
-        
         echo ""
-        echo "=== Directory Sizes BEFORE ==="
-        echo "/opt:          $(sudo du -sh /opt 2>/dev/null | cut -f1)"
-        echo "/usr/local:    $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
-        echo "/home:         $(sudo du -sh /home 2>/dev/null | cut -f1)"
-        echo "/etc/skel:     $(sudo du -sh /etc/skel 2>/dev/null | cut -f1)"
+        echo "Used: ${BEFORE_USED_GB}GB | Available: ${BEFORE_AVAIL_GB}GB"
 
-    - name: Aggressive Disk Cleanup - Phase 1
+    - name: Phase 1 - Essential Cleanups
       shell: bash
       run: |
-        echo "=========================================="
-        echo "PHASE 1: AGGRESSIVE CLEANUP"
-        echo "=========================================="
+        echo "=== Phase 1: Essential Cleanups ==="
         
-        # Fast parallel cleanup using subshells
-        (
-          echo "[1/12] Removing CodeQL..."
-          sudo rm -rf /opt/hostedtoolcache/CodeQL 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[2/12] Removing Rust toolchains (all users)..."
-          sudo rm -rf /home/runner/.rustup 2>/dev/null || true
-          sudo rm -rf /home/runner/.cargo 2>/dev/null || true
-          sudo rm -rf /home/packer/.rustup 2>/dev/null || true
-          sudo rm -rf /home/packer/.cargo 2>/dev/null || true
-          sudo rm -rf /etc/skel/.rustup 2>/dev/null || true
-          sudo rm -rf /etc/skel/.cargo 2>/dev/null || true
-          sudo rm -rf /root/.rustup 2>/dev/null || true
-          sudo rm -rf /root/.cargo 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[3/12] Removing PyPy..."
-          sudo rm -rf /opt/hostedtoolcache/PyPy 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[4/12] Removing Ruby toolchains..."
-          sudo rm -rf /opt/hostedtoolcache/Ruby 2>/dev/null || true
-          sudo rm -rf /home/runner/.gem 2>/dev/null || true
-          sudo rm -rf /home/packer/.gem 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[5/12] Removing Java caches..."
-          sudo rm -rf /home/runner/.gradle 2>/dev/null || true
-          sudo rm -rf /home/runner/.m2 2>/dev/null || true
-          sudo rm -rf /home/packer/.gradle 2>/dev/null || true
-          sudo rm -rf /home/packer/.m2 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[6/12] Removing .NET caches..."
-          sudo rm -rf /home/runner/.nuget 2>/dev/null || true
-          sudo rm -rf /home/packer/.nuget 2>/dev/null || true
-          sudo rm -rf /etc/skel/.dotnet 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[7/12] Cleaning APT cache..."
-          sudo apt-get clean 2>/dev/null || true
-          sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true
-          sudo rm -rf /var/cache/apt/* 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[8/12] Removing documentation and man pages..."
-          sudo rm -rf /usr/share/man/* 2>/dev/null || true
-          sudo rm -rf /usr/share/doc/* 2>/dev/null || true
-          sudo rm -rf /usr/share/locale/* 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[9/12] Removing Linuxbrew git objects..."
-          sudo rm -rf /home/linuxbrew/.linuxbrew/Homebrew/.git 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[10/12] Removing PowerShell modules..."
-          sudo rm -rf /usr/local/share/powershell/Modules 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[11/12] Cleaning runner caches..."
-          sudo rm -rf /home/runner/.cache/* 2>/dev/null || true
-          sudo rm -rf /home/packer/.cache/* 2>/dev/null || true
-          sudo rm -rf /root/.cache/* 2>/dev/null || true
-        ) &
-        
-        (
-          echo "[12/12] Removing temp files..."
-          sudo rm -rf /tmp/* 2>/dev/null || true
-          sudo rm -rf /var/tmp/* 2>/dev/null || true
-        ) &
+        # Parallel cleanup
+        (sudo apt-get clean && sudo rm -rf /var/lib/apt/lists/* /var/cache/apt/*) &
+        (sudo rm -rf /tmp/* /var/tmp/*) &
+        (sudo rm -rf /home/runner/.cache/* /home/packer/.cache/* /root/.cache/*) &
+        (sudo rm -rf /opt/hostedtoolcache/PyPy) &
+        (sudo rm -rf /opt/hostedtoolcache/Ruby) &
         
         wait
         echo "Phase 1 complete!"
 
-    - name: Conditional Cleanups
+    - name: Phase 2 - Large Tool Cleanups
       shell: bash
       run: |
-        # Android SDK cleanup
-        if [ "${{ inputs.skip_android }}" != "true" ]; then
-          echo "[Android] Removing Android SDK/NDK..."
-          sudo rm -rf /usr/local/lib/android/sdk/ndk 2>/dev/null || true
-          sudo rm -rf /usr/local/lib/android/sdk/build-tools 2>/dev/null || true
-          sudo rm -rf /usr/local/lib/android/sdk/cmdline-tools 2>/dev/null || true
-          sudo rm -rf /usr/local/lib/android/sdk/platforms 2>/dev/null || true
-          sudo rm -rf /usr/local/lib/android/sdk/patcher 2>/dev/null || true
-          sudo rm -rf /usr/local/lib/android/sdk/sources 2>/dev/null || true
-          sudo rm -rf /usr/local/lib/android/sdk/extras 2>/dev/null || true
+        echo "=== Phase 2: Large Tool Cleanups ==="
+        
+        # CodeQL
+        if [ "${{ inputs.clean_codeql }}" = "true" ]; then
+          echo "[CodeQL] Removing... (~1.7GB)"
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
         fi
         
-        # Docker cleanup
-        if [ "${{ inputs.skip_docker }}" != "true" ]; then
-          echo "[Docker] Removing Docker images and containers..."
+        # Android SDK
+        if [ "${{ inputs.clean_android }}" = "true" ]; then
+          echo "[Android] Removing... (~10GB)"
+          sudo rm -rf /usr/local/lib/android/sdk/ndk
+          sudo rm -rf /usr/local/lib/android/sdk/build-tools
+          sudo rm -rf /usr/local/lib/android/sdk/cmdline-tools
+          sudo rm -rf /usr/local/lib/android/sdk/platforms
+          sudo rm -rf /usr/local/lib/android/sdk/extras
+          sudo rm -rf /usr/local/lib/android/sdk/cmake
+        fi
+        
+        # Docker
+        if [ "${{ inputs.clean_docker }}" = "true" ]; then
+          echo "[Docker] Cleaning... (~2GB)"
           sudo docker system prune -af --volumes 2>/dev/null || true
           sudo docker builder prune -af 2>/dev/null || true
-          sudo rm -rf /var/lib/docker/* 2>/dev/null || true
-          sudo rm -rf /var/lib/containerd/* 2>/dev/null || true
+        fi
+        
+        # Haskell/GHC
+        if [ "${{ inputs.clean_ghc_haskell }}" = "true" ]; then
+          echo "[Haskell] Removing... (~3.7GB)"
+          sudo rm -rf /usr/local/.ghcup
+          sudo rm -rf /root/.ghcup
+        fi
+        
+        # Swift
+        if [ "${{ inputs.clean_swift }}" = "true" ]; then
+          echo "[Swift] Removing... (~3.2GB)"
+          sudo rm -rf /usr/share/swift
+        fi
+        
+        # .NET (only if not keeping)
+        if [ "${{ inputs.keep_dotnet }}" != "true" ]; then
+          echo "[.NET] Removing... (~4.2GB)"
+          sudo rm -rf /usr/share/dotnet
         fi
 
-    - name: Optional Toolchain Cleanup
+    - name: Phase 3 - Medium Tool Cleanups
       shell: bash
       run: |
-        # Node.js toolchains
+        echo "=== Phase 3: Medium Tool Cleanups ==="
+        
+        # PowerShell
+        if [ "${{ inputs.clean_powershell }}" = "true" ]; then
+          echo "[PowerShell] Removing... (~1.3GB)"
+          sudo rm -rf /usr/local/share/powershell
+          sudo rm -rf /opt/microsoft/powershell
+        fi
+        
+        # Julia
+        if [ "${{ inputs.clean_julia }}" = "true" ]; then
+          echo "[Julia] Removing... (~1GB)"
+          sudo rm -rf /usr/local/julia*
+        fi
+        
+        # Google Cloud SDK
+        if [ "${{ inputs.clean_google_cloud }}" = "true" ]; then
+          echo "[Google Cloud] Removing... (~1GB)"
+          sudo rm -rf /usr/lib/google-cloud-sdk
+        fi
+        
+        # Azure CLI
+        if [ "${{ inputs.clean_azure_cli }}" = "true" ]; then
+          echo "[Azure CLI] Removing... (~1.2GB)"
+          sudo rm -rf /opt/az
+          sudo rm -rf /usr/share/az_*
+        fi
+        
+        # Miniconda
+        if [ "${{ inputs.clean_miniconda }}" = "true" ]; then
+          echo "[Miniconda] Removing... (~860MB)"
+          sudo rm -rf /usr/share/miniconda
+        fi
+        
+        # LLVM extra
+        if [ "${{ inputs.clean_llvm_extra }}" = "true" ]; then
+          echo "[LLVM] Removing extra versions... (~1.9GB)"
+          sudo rm -rf /usr/lib/llvm-16 /usr/lib/llvm-17
+        fi
+        
+        # Browsers
+        if [ "${{ inputs.clean_browsers }}" = "true" ]; then
+          echo "[Browsers] Removing... (~920MB)"
+          sudo rm -rf /usr/lib/firefox
+          sudo rm -rf /usr/local/share/chromium
+        fi
+
+    - name: Phase 4 - Optional Toolchain Cleanups
+      shell: bash
+      run: |
+        echo "=== Phase 4: Optional Toolchain Cleanups ==="
+        
+        # Node.js
         if [ "${{ inputs.keep_node }}" != "true" ]; then
-          echo "[Node.js] Removing Node.js toolchains..."
-          sudo rm -rf /opt/hostedtoolcache/node 2>/dev/null || true
-          sudo rm -rf /home/runner/.npm 2>/dev/null || true
-          sudo rm -rf /home/runner/.nvm 2>/dev/null || true
+          echo "[Node.js] Removing... (~570MB)"
+          sudo rm -rf /opt/hostedtoolcache/node
+          sudo rm -rf /home/runner/.npm /home/runner/.nvm
         fi
         
-        # Python toolchains
+        # Python
         if [ "${{ inputs.keep_python }}" != "true" ]; then
-          echo "[Python] Removing Python toolchains..."
-          sudo rm -rf /opt/hostedtoolcache/Python 2>/dev/null || true
-          sudo rm -rf /home/runner/.cache/pip 2>/dev/null || true
+          echo "[Python] Removing... (~1.7GB)"
+          sudo rm -rf /opt/hostedtoolcache/Python
+          sudo rm -rf /home/runner/.cache/pip
         fi
         
-        # Go toolchains
+        # Go
         if [ "${{ inputs.keep_go }}" != "true" ]; then
-          echo "[Go] Removing Go toolchains..."
-          sudo rm -rf /opt/hostedtoolcache/go 2>/dev/null || true
-          sudo rm -rf /home/runner/go 2>/dev/null || true
+          echo "[Go] Removing... (~1.1GB)"
+          sudo rm -rf /opt/hostedtoolcache/go
+          sudo rm -rf /home/runner/go
+        fi
+        
+        # Java
+        if [ "${{ inputs.keep_java }}" != "true" ]; then
+          echo "[Java] Removing... (~1.5GB)"
+          sudo rm -rf /usr/lib/jvm
+        fi
+        
+        # Ruby
+        if [ "${{ inputs.keep_ruby }}" != "true" ]; then
+          echo "[Ruby] Removing... (~313MB)"
+          sudo rm -rf /opt/hostedtoolcache/Ruby
+          sudo rm -rf /home/runner/.gem
+        fi
+        
+        # Rust
+        if [ "${{ inputs.clean_rust }}" = "true" ]; then
+          echo "[Rust] Removing... (~600MB)"
+          sudo rm -rf /home/runner/.rustup /home/runner/.cargo
+          sudo rm -rf /home/packer/.rustup /home/packer/.cargo
+          sudo rm -rf /etc/skel/.rustup /etc/skel/.cargo
+          sudo rm -rf /root/.rustup /root/.cargo
         fi
 
-    - name: Additional User Directory Cleanup
+    - name: Phase 5 - Additional Cleanups
       shell: bash
       run: |
-        echo "=========================================="
-        echo "ADDITIONAL USER DIRECTORY CLEANUP"
-        echo "=========================================="
+        echo "=== Phase 5: Additional Cleanups ==="
         
-        # Clean /home/packer
-        if [ "${{ inputs.clean_packer_home }}" = "true" ]; then
-          echo "[Packer] Cleaning /home/packer..."
-          sudo rm -rf /home/packer/.rustup 2>/dev/null || true
-          sudo rm -rf /home/packer/.cargo 2>/dev/null || true
-          sudo rm -rf /home/packer/.dotnet 2>/dev/null || true
-          sudo rm -rf /home/packer/.gradle 2>/dev/null || true
-          sudo rm -rf /home/packer/.m2 2>/dev/null || true
-          sudo rm -rf /home/packer/.npm 2>/dev/null || true
-          sudo rm -rf /home/packer/.nuget 2>/dev/null || true
-          sudo rm -rf /home/packer/.cache 2>/dev/null || true
-          sudo rm -rf /home/packer/.gem 2>/dev/null || true
+        # Packer home
+        if [ "${{ inputs.clean_packer }}" = "true" ]; then
+          echo "[Packer] Cleaning... (~680MB)"
+          sudo rm -rf /home/packer/.rustup /home/packer/.cargo
+          sudo rm -rf /home/packer/.dotnet /home/packer/.gradle /home/packer/.m2
+          sudo rm -rf /home/packer/.npm /home/packer/.nuget /home/packer/.cache
         fi
         
-        # Clean /etc/skel (skeleton directory)
+        # Skel
         if [ "${{ inputs.clean_skel }}" = "true" ]; then
-          echo "[Skel] Cleaning /etc/skel (skeleton directory)..."
-          sudo rm -rf /etc/skel/.rustup 2>/dev/null || true
-          sudo rm -rf /etc/skel/.cargo 2>/dev/null || true
-          sudo rm -rf /etc/skel/.dotnet 2>/dev/null || true
-          sudo rm -rf /etc/skel/.nvm 2>/dev/null || true
-          sudo rm -rf /etc/skel/.ghcup 2>/dev/null || true
+          echo "[Skel] Cleaning... (~680MB)"
+          sudo rm -rf /etc/skel/.rustup /etc/skel/.cargo /etc/skel/.dotnet
+          sudo rm -rf /etc/skel/.nvm /etc/skel/.ghcup
         fi
         
-        # Clean /home/linuxbrew
+        # Linuxbrew
         if [ "${{ inputs.clean_linuxbrew }}" = "true" ]; then
-          echo "[Linuxbrew] Cleaning /home/linuxbrew..."
-          sudo rm -rf /home/linuxbrew/.linuxbrew 2>/dev/null || true
+          echo "[Linuxbrew] Removing... (~188MB)"
+          sudo rm -rf /home/linuxbrew/.linuxbrew
+        fi
+        
+        # vcpkg
+        if [ "${{ inputs.clean_vcpkg }}" = "true" ]; then
+          echo "[vcpkg] Removing... (~189MB)"
+          sudo rm -rf /usr/local/share/vcpkg
+        fi
+        
+        # Gradle/Maven
+        if [ "${{ inputs.clean_gradle_maven }}" = "true" ]; then
+          echo "[Gradle/Maven] Cleaning caches..."
+          sudo rm -rf /home/runner/.gradle /home/runner/.m2
+          sudo rm -rf /home/packer/.gradle /home/packer/.m2
+          sudo rm -rf /root/.gradle /root/.m2
+          sudo rm -rf /usr/share/gradle-* /usr/share/apache-maven-*
+        fi
+        
+        # Docs
+        if [ "${{ inputs.clean_docs }}" = "true" ]; then
+          echo "[Docs] Removing... (~234MB)"
+          sudo rm -rf /usr/share/man/* /usr/share/doc/* /usr/share/locale/*
         fi
 
-    - name: Swap File Cleanup
+    - name: Phase 6 - Swap Cleanup
       shell: bash
       if: ${{ inputs.clean_swap == 'true' }}
       run: |
-        echo "=========================================="
-        echo "SWAP FILE CLEANUP"
-        echo "=========================================="
-        
-        # Check if swap exists
+        echo "=== Phase 6: Swap Cleanup ==="
         if swapon --show | grep -q .; then
-          echo "Disabling swap..."
-          sudo swapoff -a 2>/dev/null || true
-          
-          echo "Removing swap files..."
-          sudo rm -f /swapfile 2>/dev/null || true
-          sudo rm -f /swap.img 2>/dev/null || true
-          
-          echo "Swap disabled and removed!"
-        else
-          echo "No swap configured"
+          sudo swapoff -a
+          sudo rm -f /swapfile /swap.img
+          echo "Swap removed! (~3GB)"
         fi
 
-    - name: Deep Cleanup
-      if: ${{ inputs.deep_clean == 'true' }}
-      shell: bash
-      run: |
-        echo "=========================================="
-        echo "DEEP CLEANUP - Large Development Tools"
-        echo "=========================================="
-        
-        # Remove unused large tools that are rarely needed for typical builds
-        (
-          echo "Removing Swift..."
-          sudo rm -rf /usr/share/swift 2>/dev/null || true
-        ) &
-        
-        (
-          echo "Removing Haskell/GHC..."
-          sudo rm -rf /usr/local/.ghcup 2>/dev/null || true
-          sudo rm -rf /root/.ghcup 2>/dev/null || true
-        ) &
-        
-        (
-          echo "Removing Julia..."
-          sudo rm -rf /usr/local/julia* 2>/dev/null || true
-        ) &
-        
-        (
-          echo "Removing minikube..."
-          sudo rm -rf /usr/local/bin/minikube 2>/dev/null || true
-        ) &
-        
-        (
-          echo "Removing Firefox..."
-          sudo rm -rf /usr/lib/firefox 2>/dev/null || true
-          sudo rm -rf /usr/share/firefox 2>/dev/null || true
-        ) &
-        
-        (
-          echo "Removing Chromium..."
-          sudo rm -rf /usr/local/share/chromium 2>/dev/null || true
-        ) &
-        
-        (
-          echo "Removing extra LLVM versions..."
-          sudo rm -rf /usr/lib/llvm-16 2>/dev/null || true
-          sudo rm -rf /usr/lib/llvm-17 2>/dev/null || true
-          sudo rm -rf /usr/lib/llvm-18 2>/dev/null || true
-        ) &
-        
-        wait
-        echo "Deep cleanup complete!"
-
-    - name: Final Sweep - Caches and Temp
-      shell: bash
-      run: |
-        echo "=========================================="
-        echo "FINAL SWEEP - Caches and Temporary Files"
-        echo "=========================================="
-        
-        # Clear all user caches
-        sudo rm -rf /home/runner/.cache/* 2>/dev/null || true
-        sudo rm -rf /home/packer/.cache/* 2>/dev/null || true
-        sudo rm -rf /root/.cache/* 2>/dev/null || true
-        
-        # Clear temp directories
-        sudo rm -rf /tmp/* 2>/dev/null || true
-        sudo rm -rf /var/tmp/* 2>/dev/null || true
-        
-        # Clear npm/yarn/pnpm caches
-        sudo rm -rf /home/runner/.npm 2>/dev/null || true
-        sudo rm -rf /home/runner/.yarn 2>/dev/null || true
-        sudo rm -rf /home/packer/.npm 2>/dev/null || true
-        
-        # Clear pip cache
-        sudo rm -rf /home/runner/.cache/pip 2>/dev/null || true
-        sudo rm -rf /root/.cache/pip 2>/dev/null || true
-        
-        # Go cache
-        sudo rm -rf /home/runner/go/pkg 2>/dev/null || true
-        sudo rm -rf /home/runner/go/cache 2>/dev/null || true
-        
-        echo "Final sweep complete!"
-
-    - name: Verify Disk Space (AFTER)
+    - name: Verify Disk Space
       shell: bash
       run: |
         echo "=========================================="
         echo "DISK SPACE USAGE (AFTER CLEANUP)"
         echo "=========================================="
         df -h /
-        echo ""
         
-        # Capture final values
-        AFTER_TOTAL=$(df --output=size / | awk 'NR==2' | tr -d ' ')
         AFTER_USED=$(df --output=used / | awk 'NR==2' | tr -d ' ')
         AFTER_AVAIL=$(df --output=avail / | awk 'NR==2' | tr -d ' ')
-        AFTER_PERCENT=$(df --output=pcent / | awk 'NR==2' | tr -d ' %')
-        
-        # Convert to GB for readability
-        AFTER_TOTAL_GB=$((AFTER_TOTAL / 1024 / 1024))
         AFTER_USED_GB=$((AFTER_USED / 1024 / 1024))
         AFTER_AVAIL_GB=$((AFTER_AVAIL / 1024 / 1024))
-        
-        # Calculate freed space
         FREED_GB=$((BEFORE_USED_GB - AFTER_USED_GB))
-        GAINED_AVAIL_GB=$((AFTER_AVAIL_GB - BEFORE_AVAIL_GB))
         
         echo ""
         echo "╔══════════════════════════════════════════════════════════════════╗"
         echo "║                    DISK CLEANUP SUMMARY                          ║"
         echo "╠══════════════════════════════════════════════════════════════════╣"
-        echo "║  ┌─────────────────────┬─────────────────────┬──────────────┐  ║"
-        echo "║  │       METRIC        │       BEFORE        │     AFTER    │  ║"
-        echo "║  ├─────────────────────┼─────────────────────┼──────────────┤  ║"
-        printf "║  │ Total Disk          │       %3d GB        │    %3d GB    │  ║\n" "$BEFORE_TOTAL_GB" "$AFTER_TOTAL_GB"
-        printf "║  │ Used                │       %3d GB        │    %3d GB    │  ║\n" "$BEFORE_USED_GB" "$AFTER_USED_GB"
-        printf "║  │ Available           │       %3d GB        │    %3d GB    │  ║\n" "$BEFORE_AVAIL_GB" "$AFTER_AVAIL_GB"
-        echo "║  └─────────────────────┴─────────────────────┴──────────────┘  ║"
-        echo "╠══════════════════════════════════════════════════════════════════╣"
         printf "║  🗑️  DISK SPACE FREED:           %3d GB                        ║\n" "$FREED_GB"
-        printf "║  📦 AVAILABLE SPACE GAINED:     %3d GB                        ║\n" "$GAINED_AVAIL_GB"
+        printf "║  📦 AVAILABLE SPACE NOW:        %3d GB                        ║\n" "$AFTER_AVAIL_GB"
         echo "╚══════════════════════════════════════════════════════════════════╝"
-        echo ""
-        
-        # Show directory sizes after cleanup
-        echo "=== Directory Sizes AFTER ==="
-        echo "/opt:          $(sudo du -sh /opt 2>/dev/null | cut -f1)"
-        echo "/usr/local:    $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
-        echo "/home:         $(sudo du -sh /home 2>/dev/null | cut -f1)"
-        echo "/etc/skel:     $(sudo du -sh /etc/skel 2>/dev/null | cut -f1)"

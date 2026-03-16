@@ -7,10 +7,10 @@
 
 ## Features
 
-- 🚀 **Fast**: Parallel cleanup operations for maximum speed
-- 🧹 **Aggressive**: Removes up to 35GB+ of unnecessary files
-- ⚙️ **Configurable**: Fine-grained control over what to keep
-- 🔧 **Reusable**: Use as a workflow or composite action
+- 🚀 **Fast**: Parallel cleanup operations in 6 phases
+- 🧹 **Aggressive**: Removes up to **30GB+** of unnecessary files
+- ⚙️ **Configurable**: Fine-grained control over what to keep/clean
+- 🔧 **Flexible**: Use as workflow or composite action
 - 📊 **Reporting**: Before/after disk usage comparison
 
 ## Quick Start
@@ -29,93 +29,133 @@ jobs:
         run: npm run build
 ```
 
-### With Options
+### Maximum Cleanup (Recommended)
 
 ```yaml
-- name: Free disk space
+- name: Free disk space aggressively
   uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
-    skip_android: false      # Remove Android SDK
-    skip_docker: false       # Remove Docker images
-    keep_node: true          # Keep Node.js toolchains
-    keep_python: true        # Keep Python toolchains
-    keep_go: true            # Keep Go toolchains
-    deep_clean: true         # Remove Swift, Haskell, Julia, etc.
-    clean_packer_home: true  # Clean /home/packer
-    clean_skel: true         # Clean /etc/skel duplicates
-    clean_linuxbrew: true    # Remove Homebrew
-    clean_swap: false        # Disable swap (~3GB)
+    # Keep only essential toolchains
+    keep_node: true
+    keep_python: true
+    keep_go: true
+    keep_java: false
+    keep_dotnet: false
+    keep_ruby: false
+    
+    # Clean everything else
+    clean_android: true       # ~10GB
+    clean_docker: true        # ~2GB
+    clean_codeql: true        # ~1.7GB
+    clean_ghc_haskell: true   # ~3.7GB
+    clean_swift: true         # ~3.2GB
+    clean_powershell: true    # ~1.3GB
+    clean_browsers: true      # ~920MB
+    clean_swap: true          # ~3GB
 ```
 
-## What Gets Cleaned
+## Cleanup Targets
 
-### Always Removed
-| Item | Size | Description |
-|------|------|-------------|
-| CodeQL | ~1.7GB | Security analysis toolchain |
-| Rust toolchains | ~1.8GB | rustup & cargo (all users) |
-| PyPy | ~521MB | Python alternative implementation |
-| Ruby toolchains | ~313MB | Ruby versions in toolcache |
-| Java caches | Varies | .gradle & .m2 caches |
-| .NET caches | Varies | .nuget cache |
-| APT cache | ~230MB | Package manager cache |
-| Man pages & docs | ~234MB | Documentation files |
-| PowerShell modules | ~100MB+ | Microsoft Graph modules |
+Based on deep scan analysis of GitHub Actions runner:
 
-### Optional Removal (configurable)
-| Item | Size | Input |
-|------|------|-------|
-| Android SDK/NDK | ~5GB+ | `skip_android: false` |
-| Docker images | ~1.8GB+ | `skip_docker: false` |
-| Node.js toolchains | ~571MB | `keep_node: false` |
-| Python toolchains | ~1.6GB | `keep_python: false` |
-| Go toolchains | ~1GB | `keep_go: false` |
-| /home/packer | ~680MB | `clean_packer_home: true` |
-| /etc/skel | ~680MB | `clean_skel: true` |
-| Linuxbrew | ~188MB | `clean_linuxbrew: true` |
-| Swap file | ~3.1GB | `clean_swap: true` |
+### 🔴 Large Items (>1GB)
 
-### Deep Clean (when `deep_clean: true`)
-| Item | Size | Description |
-|------|------|-------------|
-| Swift | ~2GB+ | Swift toolchain |
-| Haskell/GHC | ~2GB+ | GHC compiler |
-| Julia | ~500MB+ | Julia language |
-| Firefox | ~287MB | Browser (not needed for builds) |
-| Chromium | ~100MB+ | Browser |
-| LLVM versions | ~2GB+ | Multiple LLVM versions |
+| Item | Size | Input | Default |
+|------|------|-------|---------|
+| Android SDK/NDK | ~10GB | `clean_android` | `true` |
+| Haskell/GHC | ~3.7GB | `clean_ghc_haskell` | `true` |
+| Swift toolchain | ~3.2GB | `clean_swift` | `true` |
+| .NET SDK | ~4.2GB | `keep_dotnet` | `true` |
+| CodeQL | ~1.7GB | `clean_codeql` | `true` |
+| LLVM extra | ~1.9GB | `clean_llvm_extra` | `true` |
+| PowerShell | ~1.3GB | `clean_powershell` | `true` |
+| Azure CLI | ~1.2GB | `clean_azure_cli` | `true` |
+| Google Cloud SDK | ~1GB | `clean_google_cloud` | `true` |
+| Julia | ~1GB | `clean_julia` | `true` |
+
+### 🟡 Medium Items (100MB-1GB)
+
+| Item | Size | Input | Default |
+|------|------|-------|---------|
+| Docker images | ~2GB | `clean_docker` | `true` |
+| Python toolchains | ~1.7GB | `keep_python` | `true` |
+| Java JDKs | ~1.5GB | `keep_java` | `true` |
+| Rust toolchains | ~600MB | `clean_rust` | `true` |
+| Node.js toolchains | ~570MB | `keep_node` | `true` |
+| Go toolchains | ~1.1GB | `keep_go` | `true` |
+| Miniconda | ~860MB | `clean_miniconda` | `true` |
+| Browsers | ~920MB | `clean_browsers` | `true` |
+| /home/packer | ~680MB | `clean_packer` | `true` |
+| /etc/skel duplicates | ~680MB | `clean_skel` | `true` |
+
+### 🟢 Small Items (<100MB)
+
+| Item | Size | Input | Default |
+|------|------|-------|---------|
+| Linuxbrew | ~188MB | `clean_linuxbrew` | `true` |
+| vcpkg | ~189MB | `clean_vcpkg` | `true` |
+| Gradle/Maven | varies | `clean_gradle_maven` | `true` |
+| Man pages/docs | ~234MB | `clean_docs` | `true` |
+| Ruby toolchains | ~313MB | `keep_ruby` | `false` |
 
 ## Expected Results
 
 | Metric | Before | After |
 |--------|--------|-------|
-| Disk Used | ~54GB | ~20GB |
-| Disk Available | ~92GB | ~125GB |
-| Cleanup Time | - | ~30-60 seconds |
+| Disk Used | ~54GB | ~18-24GB |
+| Disk Available | ~92GB | ~120-128GB |
+| **Total Freed** | - | **~30-36GB** |
+| Cleanup Time | - | ~60-90 seconds |
 
-## Inputs
+## Inputs Reference
 
-| Input | Type | Default | Description |
-|-------|------|---------|-------------|
-| `skip_android` | boolean | `false` | Skip Android SDK cleanup |
-| `skip_docker` | boolean | `false` | Skip Docker cleanup |
-| `keep_node` | boolean | `true` | Keep Node.js toolchains |
-| `keep_python` | boolean | `true` | Keep Python toolchains |
-| `keep_go` | boolean | `true` | Keep Go toolchains |
-| `deep_clean` | boolean | `true` | Remove large development tools |
-| `clean_packer_home` | boolean | `true` | Clean /home/packer directory |
-| `clean_skel` | boolean | `true` | Clean /etc/skel (skeleton directory) |
-| `clean_linuxbrew` | boolean | `true` | Remove Homebrew installation |
-| `clean_swap` | boolean | `false` | Disable and remove swap file |
+### Keep Options (Toolchains to Preserve)
 
-## Use Cases
+| Input | Default | Description |
+|-------|---------|-------------|
+| `keep_node` | `true` | Keep Node.js toolchains |
+| `keep_python` | `true` | Keep Python toolchains |
+| `keep_go` | `true` | Keep Go toolchains |
+| `keep_java` | `true` | Keep Java JDKs |
+| `keep_dotnet` | `true` | Keep .NET SDK |
+| `keep_ruby` | `false` | Keep Ruby toolchains |
+
+### Clean Options (Items to Remove)
+
+| Input | Default | Size Freed |
+|-------|---------|------------|
+| `clean_android` | `true` | ~10GB |
+| `clean_docker` | `true` | ~2GB |
+| `clean_codeql` | `true` | ~1.7GB |
+| `clean_ghc_haskell` | `true` | ~3.7GB |
+| `clean_swift` | `true` | ~3.2GB |
+| `clean_powershell` | `true` | ~1.3GB |
+| `clean_julia` | `true` | ~1GB |
+| `clean_google_cloud` | `true` | ~1GB |
+| `clean_azure_cli` | `true` | ~1.2GB |
+| `clean_miniconda` | `true` | ~860MB |
+| `clean_llvm_extra` | `true` | ~1.9GB |
+| `clean_browsers` | `true` | ~920MB |
+| `clean_rust` | `true` | ~600MB |
+| `clean_packer` | `true` | ~680MB |
+| `clean_skel` | `true` | ~680MB |
+| `clean_linuxbrew` | `true` | ~188MB |
+| `clean_vcpkg` | `true` | ~189MB |
+| `clean_gradle_maven` | `true` | varies |
+| `clean_docs` | `true` | ~234MB |
+| `clean_swap` | `false` | ~3GB |
+
+## Use Case Examples
 
 ### Node.js Projects
 ```yaml
 - uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
+    keep_node: true
     keep_python: false
     keep_go: false
+    keep_java: false
+    keep_dotnet: false
 ```
 
 ### Python Projects
@@ -123,68 +163,69 @@ jobs:
 - uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
     keep_node: false
+    keep_python: true
     keep_go: false
+    keep_java: false
+    keep_dotnet: false
 ```
 
-### Mobile Development (Android)
+### Android Projects
 ```yaml
 - uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
-    skip_android: true
-    keep_python: false
-    keep_go: false
+    clean_android: false  # Keep Android SDK
+    clean_docker: false   # If using Docker builds
 ```
 
 ### Docker Builds
 ```yaml
 - uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
-    skip_docker: true
+    clean_docker: false   # Keep Docker
 ```
 
-### Maximum Cleanup
+### Maximum Cleanup (All Tools Removed)
 ```yaml
 - uses: hoshiyomiX/aggressive-disk-cleaner@main
   with:
     keep_node: false
     keep_python: false
     keep_go: false
-    deep_clean: true
-    clean_packer_home: true
-    clean_skel: true
-    clean_linuxbrew: true
+    keep_java: false
+    keep_dotnet: false
+    keep_ruby: false
     clean_swap: true
 ```
 
 ## How It Works
 
-1. **Parallel Execution**: Uses subshells to run cleanup operations in parallel for speed
-2. **Safe Defaults**: Keeps common build toolchains (Node.js, Python, Go) by default
-3. **Selective Removal**: Configurable options for project-specific needs
-4. **Before/After Reporting**: Shows disk usage comparison with cleanup summary
+1. **Phase 1**: Essential cleanups (APT, temp, caches)
+2. **Phase 2**: Large tool removal (Android, CodeQL, GHC, Swift)
+3. **Phase 3**: Medium tool removal (PowerShell, Julia, Cloud SDKs)
+4. **Phase 4**: Optional toolchains (Node, Python, Go, Java)
+5. **Phase 5**: Additional cleanups (Packer, Skel, Linuxbrew)
+6. **Phase 6**: Swap file cleanup
 
-## Disk Scanner Workflow
+All phases use parallel operations for maximum speed.
 
-This repository also includes a comprehensive disk scanner workflow to analyze disk usage:
+## Disk Scanner
 
-```yaml
-# Trigger manually
+Run deep analysis of runner disk usage:
+
+```bash
 gh workflow run disk-scan.yml
 ```
 
-The scanner analyzes:
-- All filesystems (root, boot, EFI, tmpfs)
-- Toolchains and build caches
-- User home directories
-- Kernel and boot files
-- Large files and system caches
-
-Results are uploaded as artifacts for analysis.
+Results include:
+- Complete /usr and /opt breakdown
+- All toolchain versions and sizes
+- Cleanup recommendations with calculated savings
+- Essential vs conditional keep analysis
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit issues or pull requests.
+Contributions welcome! Please submit issues or pull requests.
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+MIT License
