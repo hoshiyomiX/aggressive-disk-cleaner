@@ -36,14 +36,47 @@ jobs:
       contents: write
     
     steps:
-      - name: Check Initial Disk Space
+      - name: Check Initial Disk Space (BEFORE)
+        id: before
         run: |
           echo "=========================================="
-          echo "INITIAL DISK SPACE"
+          echo "DISK SPACE USAGE (BEFORE CLEANUP)"
           echo "=========================================="
           df -h /
           echo ""
-          echo "Available: $(df -h / | awk 'NR==2 {print $4}')"
+          
+          # Capture initial values
+          BEFORE_TOTAL=$(df --output=size / | awk 'NR==2' | tr -d ' ')
+          BEFORE_USED=$(df --output=used / | awk 'NR==2' | tr -d ' ')
+          BEFORE_AVAIL=$(df --output=avail / | awk 'NR==2' | tr -d ' ')
+          BEFORE_PERCENT=$(df --output=pcent / | awk 'NR==2' | tr -d ' %')
+          
+          # Convert to GB for readability
+          BEFORE_TOTAL_GB=$((BEFORE_TOTAL / 1024 / 1024))
+          BEFORE_USED_GB=$((BEFORE_USED / 1024 / 1024))
+          BEFORE_AVAIL_GB=$((BEFORE_AVAIL / 1024 / 1024))
+          
+          echo "BEFORE_TOTAL_GB=${BEFORE_TOTAL_GB}" >> $GITHUB_ENV
+          echo "BEFORE_USED_GB=${BEFORE_USED_GB}" >> $GITHUB_ENV
+          echo "BEFORE_AVAIL_GB=${BEFORE_AVAIL_GB}" >> $GITHUB_ENV
+          echo "BEFORE_PERCENT=${BEFORE_PERCENT}" >> $GITHUB_ENV
+          
+          echo "┌─────────────────────────────────────────┐"
+          echo "│         DISK USAGE (BEFORE)             │"
+          echo "├─────────────────────────────────────────┤"
+          echo "│ Total Disk:     ${BEFORE_TOTAL_GB}GB                     │"
+          echo "│ Used:           ${BEFORE_USED_GB}GB (${BEFORE_PERCENT}%)                │"
+          echo "│ Available:      ${BEFORE_AVAIL_GB}GB                     │"
+          echo "└─────────────────────────────────────────┘"
+          
+          # Also save detailed breakdown
+          echo ""
+          echo "=== Directory Sizes BEFORE ==="
+          echo "/opt:          $(sudo du -sh /opt 2>/dev/null | cut -f1)"
+          echo "/usr:          $(sudo du -sh /usr 2>/dev/null | cut -f1)"
+          echo "/usr/local:    $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
+          echo "/home:         $(sudo du -sh /home 2>/dev/null | cut -f1)"
+          echo "/var:          $(sudo du -sh /var 2>/dev/null | cut -f1)"
           
       - name: Aggressive Disk Cleanup
         run: |
@@ -237,27 +270,91 @@ jobs:
           
           echo "Final sweep complete!"
           
-      - name: Verify Disk Space
+      - name: Verify Disk Space (AFTER)
+        id: after
         run: |
           echo "=========================================="
-          echo "DISK SPACE AFTER CLEANUP"
+          echo "DISK SPACE USAGE (AFTER CLEANUP)"
           echo "=========================================="
           df -h /
           echo ""
           
-          # Calculate freed space
-          INITIAL_USED="54G"
-          CURRENT_USED=$(df -h / | awk 'NR==2 {print $3}')
-          CURRENT_AVAIL=$(df -h / | awk 'NR==2 {print $4}')
+          # Capture final values
+          AFTER_TOTAL=$(df --output=size / | awk 'NR==2' | tr -d ' ')
+          AFTER_USED=$(df --output=used / | awk 'NR==2' | tr -d ' ')
+          AFTER_AVAIL=$(df --output=avail / | awk 'NR==2' | tr -d ' ')
+          AFTER_PERCENT=$(df --output=pcent / | awk 'NR==2' | tr -d ' %')
           
-          echo "=========================================="
-          echo "SUMMARY"
-          echo "=========================================="
-          echo "Current Used: $CURRENT_USED"
-          echo "Current Available: $CURRENT_AVAIL"
+          # Convert to GB for readability
+          AFTER_TOTAL_GB=$((AFTER_TOTAL / 1024 / 1024))
+          AFTER_USED_GB=$((AFTER_USED / 1024 / 1024))
+          AFTER_AVAIL_GB=$((AFTER_AVAIL / 1024 / 1024))
+          
+          # Calculate freed space
+          FREED_GB=$((BEFORE_USED_GB - AFTER_USED_GB))
+          GAINED_AVAIL_GB=$((AFTER_AVAIL_GB - BEFORE_AVAIL_GB))
+          
+          echo ""
+          echo "╔══════════════════════════════════════════════════════════════════╗"
+          echo "║                    DISK CLEANUP SUMMARY                          ║"
+          echo "╠══════════════════════════════════════════════════════════════════╣"
+          echo "║                                                                  ║"
+          echo "║  ┌─────────────────────┬─────────────────────┬──────────────┐  ║"
+          echo "║  │       METRIC        │       BEFORE        │     AFTER    │  ║"
+          echo "║  ├─────────────────────┼─────────────────────┼──────────────┤  ║"
+          printf "║  │ Total Disk          │       %3d GB        │    %3d GB    │  ║\n" "$BEFORE_TOTAL_GB" "$AFTER_TOTAL_GB"
+          printf "║  │ Used                │       %3d GB        │    %3d GB    │  ║\n" "$BEFORE_USED_GB" "$AFTER_USED_GB"
+          printf "║  │ Available           │       %3d GB        │    %3d GB    │  ║\n" "$BEFORE_AVAIL_GB" "$AFTER_AVAIL_GB"
+          printf "║  │ Usage %%             │       %3d%%          │    %3d%%      │  ║\n" "$BEFORE_PERCENT" "$AFTER_PERCENT"
+          echo "║  └─────────────────────┴─────────────────────┴──────────────┘  ║"
+          echo "║                                                                  ║"
+          echo "╠══════════════════════════════════════════════════════════════════╣"
+          printf "║  🗑️  DISK SPACE FREED:           %3d GB                        ║\n" "$FREED_GB"
+          printf "║  📦 AVAILABLE SPACE GAINED:     %3d GB                        ║\n" "$GAINED_AVAIL_GB"
+          echo "╚══════════════════════════════════════════════════════════════════╝"
           echo ""
           
-          # Show what's left in key directories
-          echo "Remaining in /opt: $(sudo du -sh /opt 2>/dev/null | cut -f1)"
-          echo "Remaining in /usr/local: $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
-          echo "Remaining in /home: $(sudo du -sh /home 2>/dev/null | cut -f1)"
+          # Show directory sizes after cleanup
+          echo "=== Directory Sizes AFTER ==="
+          echo "/opt:          $(sudo du -sh /opt 2>/dev/null | cut -f1)"
+          echo "/usr:          $(sudo du -sh /usr 2>/dev/null | cut -f1)"
+          echo "/usr/local:    $(sudo du -sh /usr/local 2>/dev/null | cut -f1)"
+          echo "/home:         $(sudo du -sh /home 2>/dev/null | cut -f1)"
+          echo "/var:          $(sudo du -sh /var 2>/dev/null | cut -f1)"
+          
+          # Set outputs for summary
+          echo "freed_gb=${FREED_GB}" >> $GITHUB_OUTPUT
+          echo "gained_gb=${GAINED_AVAIL_GB}" >> $GITHUB_OUTPUT
+          echo "before_used=${BEFORE_USED_GB}GB" >> $GITHUB_OUTPUT
+          echo "after_used=${AFTER_USED_GB}GB" >> $GITHUB_OUTPUT
+          echo "after_avail=${AFTER_AVAIL_GB}GB" >> $GITHUB_OUTPUT
+
+      - name: Job Summary
+        if: always()
+        run: |
+          # Get after values
+          AFTER_USED=$(df --output=used / | awk 'NR==2' | tr -d ' ')
+          AFTER_AVAIL=$(df --output=avail / | awk 'NR==2' | tr -d ' ')
+          AFTER_USED_GB=$((AFTER_USED / 1024 / 1024))
+          AFTER_AVAIL_GB=$((AFTER_AVAIL / 1024 / 1024))
+          FREED_GB=$((BEFORE_USED_GB - AFTER_USED_GB))
+          
+          echo "## 🧹 Disk Cleanup Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Metric | Before | After |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Used** | ${BEFORE_USED_GB}GB | ${AFTER_USED_GB}GB |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Available** | ${BEFORE_AVAIL_GB}GB | ${AFTER_AVAIL_GB}GB |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📊 Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Disk Space Freed:** ${FREED_GB}GB" >> $GITHUB_STEP_SUMMARY
+          echo "- **Available Space Gained:** ${AFTER_AVAIL_GB}GB" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### ⚙️ Configuration Used" >> $GITHUB_STEP_SUMMARY
+          echo "| Option | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Skip Android | ${{ inputs.skip_android }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Skip Docker | ${{ inputs.skip_docker }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Keep Node.js | ${{ inputs.keep_node }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Keep Python | ${{ inputs.keep_python }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Keep Go | ${{ inputs.keep_go }} |" >> $GITHUB_STEP_SUMMARY
